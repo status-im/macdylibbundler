@@ -52,7 +52,7 @@ std::string installPath = "";
 void showHelp()
 {
     std::cout << "dylibbundler " << VERSION << std::endl;
-    std::cout << "dylibbundler is a utility that helps bundle dynamic libraries inside mac OS X app bundles.\n" << std::endl;
+    std::cout << "dylibbundler is a utility that helps bundle dynamic libraries inside macOS app bundles.\n" << std::endl;
     
     std::cout << "-x, --fix-file <file to fix (executable or app plug-in)>" << std::endl;
     std::cout << "-b, --bundle-deps" << std::endl;
@@ -63,6 +63,7 @@ void showHelp()
     std::cout << "-od, --overwrite-dir (totally overwrite output directory if it already exists. implies --create-dir)" << std::endl;
     std::cout << "-cd, --create-dir (creates output directory if necessary)" << std::endl;
     std::cout << "-i, --ignore <location to ignore> (will ignore libraries in this directory)" << std::endl;
+    std::cout << "-q, --quiet (print only summary information)" << std::endl;
     std::cout << "-h, --help" << std::endl;
 }
 

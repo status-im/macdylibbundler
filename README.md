@@ -39,7 +39,7 @@ Here is a list of flags you can pass to dylibbundler on the terminal.
 
 `-h`, `--help`
 <blockquote>
-displays a summary of options
+Displays a summary of options
 </blockquote>
 
 `-x`, `--fix-file` (executable or plug-in filepath)
@@ -75,6 +75,9 @@ fixes dependencies where bundled libraries depend on each other. If this option 
 
 `-cd`, `--create-dir`
 > If the output directory does not exist, create it.
+
+`-q`, `--quiet`
+> Print only summary information.
 
 A command may look like
 `% dylibbundler -od -b -x ./HelloWorld.app/Contents/MacOS/helloworld -d ./HelloWorld.app/Contents/libs/`
