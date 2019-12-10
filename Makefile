@@ -1,6 +1,7 @@
 DESTDIR=
 PREFIX=/usr/local
-CXXFLAGS = -O2
+CXX=clang++
+CXXFLAGS=-O2 -std=c++11
 
 all: dylibbundler
 

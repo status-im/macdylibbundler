@@ -44,8 +44,20 @@ std::string stripPrefix(std::string in)
     return in.substr(in.rfind("/")+1);
 }
 
-std::string& rtrim(std::string &s) {
-    s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+// std::string& rtrim(std::string &s) {
+//     s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+//     return s;
+// }
+
+static inline void rtrim_in_place(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from end (copying)
+static inline std::string rtrim(std::string s) {
+    rtrim_in_place(s);
     return s;
 }
 
