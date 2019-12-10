@@ -143,7 +143,7 @@ Dependency::Dependency(std::string path)
         {
             if (fileExists( paths[i]+filename ))
             {
-                std::cout << " * FOUND " << filename << " in " << paths[i] << std::endl;
+                std::cout << "FOUND " << filename << " in " << paths[i] << std::endl;
                 prefix = paths[i];
                 missing_prefixes = true; //the prefix was missing
                 break;

@@ -181,7 +181,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         if( !fileExists( searchPath+filename ) ) {
             continue;
         } else {
-            std::cerr << " * " << (searchPath+filename) << " was found.\n"
+            std::cerr << (searchPath+filename) << " was found.\n"
                       << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY:\n"
                       << "Manually check the executable with 'otool -L'" << std::endl;
             return searchPath;
@@ -202,12 +202,12 @@ std::string getUserInputDirForFile(const std::string& filename)
 
         if( !fileExists( prefix+filename ) )
         {
-            std::cerr << " * " << (prefix+filename) << " does not exist. Try again" << std::endl;
+            std::cerr << (prefix+filename) << " does not exist. Try again" << std::endl;
             continue;
         }
         else
         {
-            std::cerr << " * " << (prefix+filename) << " was found.\n"
+            std::cerr << (prefix+filename) << " was found.\n"
                       << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY:\n"
                       << "Manually check the executable with 'otool -L'" << std::endl;
             return prefix;
