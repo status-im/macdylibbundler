@@ -31,6 +31,7 @@ namespace Settings
 bool overwrite_files = false;
 bool overwrite_dir = false;
 bool create_dir = false;
+bool verbose_output = true;
 
 bool canOverwriteFiles(){ return overwrite_files; }
 bool canOverwriteDir(){ return overwrite_dir; }
@@ -101,5 +102,8 @@ std::vector<std::string> searchPaths;
 void addSearchPath(std::string path){ searchPaths.push_back(path); }
 int searchPathAmount(){ return searchPaths.size(); }
 std::string searchPath(const int n){ return searchPaths[n]; }
+
+bool verboseOutput(){ return verbose_output; }
+void verboseOutput(bool status){ verbose_output = status; }
 
 }

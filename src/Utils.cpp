@@ -163,7 +163,10 @@ std::string system_get_output(std::string cmd)
 
 int systemp(std::string& cmd)
 {
-    std::cout << "    " << cmd.c_str() << std::endl;
+    if(Settings::verboseOutput())
+    {
+        std::cout << "    " << cmd.c_str() << std::endl;
+    }
     return system(cmd.c_str());
 }
 

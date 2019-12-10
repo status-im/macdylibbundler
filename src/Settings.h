@@ -60,5 +60,8 @@ void addSearchPath(std::string path);
 int searchPathAmount();
 std::string searchPath(const int n);
 
+bool verboseOutput();
+void verboseOutput(bool status);
+
 }
 #endif

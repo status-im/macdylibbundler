@@ -128,6 +128,11 @@ int main (int argc, char * const argv[])
             Settings::addSearchPath(argv[i]);
             continue;
         }
+        else if(strcmp(argv[i],"-q")==0 or strcmp(argv[i],"--quiet")==0)
+        {
+            Settings::verboseOutput(false);
+            continue;
+        }
         else if(i>0)
         {
             // if we meet an unknown flag, abort
