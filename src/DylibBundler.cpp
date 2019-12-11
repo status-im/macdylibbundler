@@ -43,7 +43,7 @@ std::map<std::string, std::vector<std::string> > rpaths_per_file;
 void changeLibPathsOnFile(std::string file_to_fix)
 {
     std::cout << "\n* Fixing dependencies on " << file_to_fix.c_str() << std::endl;
-    
+
     const int dep_amount = deps.size();
     for(int n=0; n<dep_amount; n++)
     {
@@ -162,16 +162,16 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
 void addDependency(std::string path)
 {
     Dependency dep(path);
-    
+
     // we need to check if this library was already added to avoid duplicates
     const int dep_amount = deps.size();
     for(int n=0; n<dep_amount; n++)
     {
         if(dep.mergeIfSameAs(deps[n])) return;
     }
-    
+
     if(!Settings::isPrefixBundled(dep.getPrefix())) return;
-    
+
     deps.push_back(dep);
 }
 
@@ -189,7 +189,7 @@ void collectDependencies(std::string filename, std::vector<std::string>& lines)
         std::cerr << "Cannot find file " << filename << " to read its dependencies" << std::endl;
         exit(1);
     }
-    
+
     // split output
     tokenize(output, "\n", &lines);
 }
@@ -199,15 +199,15 @@ void collectDependencies(std::string filename)
 {
     std::vector<std::string> lines;
     collectDependencies(filename, lines);
-       
+
     std::cout << "."; fflush(stdout);
-    
+
     const int line_amount = lines.size();
     for(int n=0; n<line_amount; n++)
     {
         std::cout << "."; fflush(stdout);
         if(lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
-        if( lines[n].find(".framework") != std::string::npos ) continue; //Ignore frameworks, we can not handle them
+        if( lines[n].find(".framework") != std::string::npos ) continue; //Ignore frameworks, we cannot handle them
 
         // trim useless info, keep only library name
         std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
@@ -223,8 +223,8 @@ void collectSubDependencies()
 {
     // print status to user
     int dep_amount = deps.size();
-    
-    // recursively collect each dependencie's dependencies
+
+    // recursively collect each dependency's dependencies
     while(true)
     {
         dep_amount = deps.size();
@@ -239,13 +239,13 @@ void collectSubDependencies()
             }
             collectRpathsForFilename(original_path);
             collectDependencies(original_path, lines);
-            
+
             const int line_amount = lines.size();
             for(int n=0; n<line_amount; n++)
             {
                 if(lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
                 if( lines[n].find(".framework") != std::string::npos ) continue; //Ignore frameworks, we cannot handle them
-                
+
                 // trim useless info, keep only library name
                 std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
                 if (isRpath(dep_path))
@@ -256,7 +256,7 @@ void collectSubDependencies()
                 addDependency(dep_path);
             }//next
         }//next
-        
+
         if(deps.size() == dep_amount) break; // no more dependencies were added on this iteration, stop searching
     }
 }
@@ -265,10 +265,10 @@ void createDestDir()
 {
     std::string dest_folder = Settings::destFolder();
     std::cout << "* Checking output directory " << dest_folder.c_str() << std::endl;
-    
+
     // ----------- check dest folder stuff ----------
     bool dest_exists = fileExists(dest_folder);
-    
+
     if(dest_exists and Settings::canOverwriteDir())
     {
         std::cout << "* Erasing old output directory " << dest_folder.c_str() << std::endl;
@@ -280,10 +280,10 @@ void createDestDir()
         }
         dest_exists = false;
     }
-    
+
     if(!dest_exists)
     {
-        
+
         if(Settings::canCreateDir())
         {
             std::cout << "* Creating output directory " << dest_folder.c_str() << std::endl;
@@ -300,7 +300,7 @@ void createDestDir()
             exit(1);
         }
     }
-    
+
 }
 
 void doneWithDeps_go()
@@ -313,12 +313,12 @@ void doneWithDeps_go()
         deps[n].print();
     }
     std::cout << std::endl;
-    
+
     // copy files if requested by user
     if(Settings::bundleLibs())
     {
         createDestDir();
-        
+
         for(int n=0; n<dep_amount; n++)
         {
             deps[n].copyYourself();
@@ -326,7 +326,7 @@ void doneWithDeps_go()
             fixRpathsOnFile(deps[n].getOriginalPath(), deps[n].getInstallPath());
         }
     }
-    
+
     const int fileToFixAmount = Settings::fileToFixAmount();
     for(int n=0; n<fileToFixAmount; n++)
     {

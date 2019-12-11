@@ -44,14 +44,10 @@ std::string stripPrefix(std::string in)
     return in.substr(in.rfind("/")+1);
 }
 
-// std::string& rtrim(std::string &s) {
-//     s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
-//     return s;
-// }
-
+// trim from end (in place)
 static inline void rtrim_in_place(std::string &s) {
-    s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
-        return !std::isspace(ch);
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) {
+        return !std::isspace(c);
     }).base(), s.end());
 }
 
@@ -130,14 +126,14 @@ Dependency::Dependency(std::string path)
         filename = stripPrefix(path);
         prefix = path.substr(0, path.rfind("/")+1);
     }
-    
+
     //check if the lib is in a known location
     if( !prefix.empty() && prefix[ prefix.size()-1 ] != '/' ) prefix += "/";
     if( prefix.empty() || !fileExists( prefix+filename ) )
     {
         //the paths contains at least /usr/lib so if it is empty we have not initialized it
         if( paths.empty() ) initSearchPaths();
-        
+
         //check if file is contained in one of the paths
         for( size_t i=0; i<paths.size(); ++i)
         {
@@ -150,17 +146,17 @@ Dependency::Dependency(std::string path)
             }
         }
     }
-    
+
     //If the location is still unknown, ask the user for search path
     if( !Settings::isPrefixIgnored(prefix)
         && ( prefix.empty() || !fileExists( prefix+filename ) ) )
     {
         std::cerr << "\n/!\\ WARNING : Library " << filename << " has an incomplete name (location unknown)" << std::endl;
         missing_prefixes = true;
-        
+
         paths.push_back(getUserInputDirForFile(filename));
     }
-    
+
     //new_name  = filename.substr(0, filename.find(".")) + ".dylib";
     new_name = filename;
 }
@@ -169,7 +165,7 @@ void Dependency::print()
 {
     std::cout << std::endl;
     std::cout << " * " << filename.c_str() << " from " << prefix.c_str() << std::endl;
-    
+
     const int symamount = symlinks.size();
     for(int n=0; n<symamount; n++)
         std::cout << "     symlink --> " << symlinks[n].c_str() << std::endl;;
@@ -209,7 +205,7 @@ bool Dependency::mergeIfSameAs(Dependency& dep2)
 void Dependency::copyYourself()
 {
     copyFile(getOriginalPath(), getInstallPath());
-    
+
     // Fix the lib's inner name
     std::string command = std::string("install_name_tool -id ") + getInnerPath() + " " + getInstallPath();
     if( systemp( command ) != 0 )
@@ -224,48 +220,48 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
     // for main lib file
     std::string command = std::string("install_name_tool -change ") +
     getOriginalPath() + " " + getInnerPath() + " " + file_to_fix;
-    
+
     if( systemp( command ) != 0 )
     {
         std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
         exit(1);
     }
-    
+
     // for symlinks
     const int symamount = symlinks.size();
     for(int n=0; n<symamount; n++)
     {
         command = std::string("install_name_tool -change ") +
         symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
-        
+
         if( systemp( command ) != 0 )
         {
             std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
             exit(1);
         }
     }
-    
-    
+
+
     // FIXME - hackish
     if(missing_prefixes)
     {
         // for main lib file
         command = std::string("install_name_tool -change ") +
         filename + " " + getInnerPath() + " " + file_to_fix;
-        
+
         if( systemp( command ) != 0 )
         {
             std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
             exit(1);
         }
-        
+
         // for symlinks
         const int symamount = symlinks.size();
         for(int n=0; n<symamount; n++)
         {
             command = std::string("install_name_tool -change ") +
             symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
-            
+
             if( systemp( command ) != 0 )
             {
                 std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
