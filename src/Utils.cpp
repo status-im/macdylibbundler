@@ -44,27 +44,27 @@ void setInstallPath(string loc)
 void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
 {
     vector<string>& tokens = *vectorarg;
-    
+
     string delimiters(delim);
-    
+
     // skip delimiters at beginning.
     string::size_type lastPos = str.find_first_not_of( delimiters , 0);
-    
+
     // find first "non-delimiter".
     string::size_type pos = str.find_first_of(delimiters, lastPos);
-    
+
     while (string::npos != pos || string::npos != lastPos)
     {
         // found a token, add it to the vector.
         tokens.push_back(str.substr(lastPos, pos - lastPos));
-        
+
         // skip delimiters.  Note the "not_of"
         lastPos = str.find_first_not_of(delimiters, pos);
-        
+
         // find next "non-delimiter"
         pos = str.find_first_of(delimiters, lastPos);
     }
-    
+
 }
 
 
@@ -106,7 +106,7 @@ void copyFile(string from, string to)
     }
 
     string override_permission = string(override ? "-f " : "-n ");
-        
+
     // copy file to local directory
     string command = string("cp ") + override_permission + from + string(" ") + to;
     if( from != to && systemp( command ) != 0 )
@@ -114,7 +114,7 @@ void copyFile(string from, string to)
         cerr << "\n\nError : An error occured while trying to copy file " << from << " to " << to << endl;
         exit(1);
     }
-    
+
     // give it write permission
     string command2 = string("chmod +w ") + to;
     if( systemp( command2 ) != 0 )
@@ -129,14 +129,14 @@ std::string system_get_output(std::string cmd)
     FILE * command_output;
     char output[128];
     int amount_read = 1;
-    
+
     std::string full_output;
-    
+
     try
     {
         command_output = popen(cmd.c_str(), "r");
         if(command_output == NULL) throw;
-        
+
         while(amount_read > 0)
         {
             amount_read = fread(output, 1, 127, command_output);
@@ -154,10 +154,10 @@ std::string system_get_output(std::string cmd)
         pclose(command_output);
         return "";
     }
-    
+
     int return_value = pclose(command_output);
     if(return_value != 0) return "";
-    
+
     return full_output;
 }
 
@@ -182,7 +182,7 @@ std::string getUserInputDirForFile(const std::string& filename)
             continue;
         } else {
             std::cerr << (searchPath+filename) << " was found.\n"
-                      << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY:\n"
+                      << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: "
                       << "Manually check the executable with 'otool -L'" << std::endl;
             return searchPath;
         }
@@ -208,7 +208,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         else
         {
             std::cerr << (prefix+filename) << " was found.\n"
-                      << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY:\n"
+                      << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: "
                       << "Manually check the executable with 'otool -L'" << std::endl;
             return prefix;
         }
