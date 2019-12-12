@@ -46,6 +46,7 @@ void changeLibPathsOnFile(std::string file_to_fix)
     std::cout << "\n* Fixing dependencies on " << file_to_fix.c_str() << std::endl;
 
     const int dep_amount = deps.size();
+    std::cout << "changeLibPaths: # of deps: " << dep_amount << std::endl;
     parallel_for(dep_amount, [&](int start, int end)
     {
         for(int i=start; i<end; ++i)
@@ -154,7 +155,7 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
 
     int start = 0;
     int end = rpaths_to_fix.size();
-
+    std::cout << "# of rpaths to fix: " << rpaths_to_fix.size() << std::endl;
     // parallel_for(rpaths_to_fix.size(), [&](int start, int end)
     // {
         for(int i=start; i<end; ++i)
@@ -177,17 +178,10 @@ void addDependency(std::string path)
 
     // we need to check if this library was already added to avoid duplicates
     const int dep_amount = deps.size();
-    int start = 0;
-    int end = dep_amount;
-    // parallel_for(dep_amount, [&](int start, int end)
-    // {
-        for(int i=start; i<end; ++i)
-        {
-            if(dep.mergeIfSameAs(deps[i]))
-                return;
-        }
-        // pthread_exit(NULL);
-    // });
+    for(int n=0; n<dep_amount; n++)
+    {
+        if(dep.mergeIfSameAs(deps[n])) return;
+    }
 
     if(!Settings::isPrefixBundled(dep.getPrefix())) return;
 
@@ -205,7 +199,6 @@ void collectDependencies(std::string filename, std::vector<std::string>& lines)
 
     if(output.find("can't open file")!=std::string::npos or output.find("No such file")!=std::string::npos or output.size()<1)
     {
-        std::cerr << output << std::endl;
         std::cerr << "Cannot find file " << filename << " to read its dependencies" << std::endl;
         exit(1);
     }
@@ -225,6 +218,7 @@ void collectDependencies(std::string filename)
     const int line_amount = lines.size();
     int start = 0;
     int end = line_amount;
+    std::cout << "collectDeps: # of lines: " << line_amount << std::endl;
     // parallel_for(line_amount, [&](int start, int end)
     // {
         for(int i=start; i<end; ++i)
@@ -258,6 +252,7 @@ void collectSubDependencies()
         dep_amount = deps.size();
         int start = 0;
         int end = deps.size();
+        std::cout << "collectSubDeps: # of deps: " << dep_amount << std::endl;
         // parallel_for(dep_amount, [&](int start, int end)
         // {
             for(int i=start; i<end; ++i)
@@ -274,6 +269,7 @@ void collectSubDependencies()
                 const int line_amount = lines.size();
                 int s = 0;
                 int e = line_amount;
+                std::cout << "collectSubDeps: # of lines: " << line_amount << std::endl;
                 // parallel_for(line_amount, [&](int s, int e)
                 // {
                     for(int j=s; j<e; ++j)
@@ -356,26 +352,32 @@ void doneWithDeps_go()
         createDestDir();
 
         // for(int n=0; n<dep_amount; n++)
-        parallel_for(dep_amount, [&](int start, int end)
-        {
+        std::cout << "donewithDeps_go: # of deps: " << dep_amount << std::endl;
+        int start = 0;
+        int end = dep_amount;
+        // parallel_for(dep_amount, [&](int start, int end)
+        // {
             for(int i=start; i<end; ++i)
             {
                 deps[i].copyYourself();
                 changeLibPathsOnFile(deps[i].getInstallPath());
                 fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
             }
-        });
+        // });
     }
 
     const int fileToFixAmount = Settings::fileToFixAmount();
-    parallel_for(fileToFixAmount, [&](int start, int end)
-    {
-        for(int i=start; i<end; ++i)
+    std::cout << "# of files to fix: " << fileToFixAmount << std::endl;
+    int s = 0;
+    int e = fileToFixAmount;
+    // parallel_for(fileToFixAmount, [&](int start, int end)
+    // {
+        for(int i=s; i<e; ++i)
         {
             changeLibPathsOnFile(Settings::fileToFix(i));
             fixRpathsOnFile(Settings::fileToFix(i), Settings::fileToFix(i));
         }
 
-    });
+    // });
 
 }

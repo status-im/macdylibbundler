@@ -154,13 +154,9 @@ int main (int argc, char * const argv[])
     std::cout << "* Collecting dependencies"; fflush(stdout);
 
     const int amount = Settings::fileToFixAmount();
-    int start = 0;
-    int end = amount;
-    // parallel_for(amount, [&](int start, int end)
-    // {
-        for(int i=start; i<end; ++i)
-            collectDependencies(Settings::fileToFix(i));
-    // });
+    std::cout << "# of files to fix: " << amount << std::endl;
+    for(int n=0; n<amount; n++)
+        collectDependencies(Settings::fileToFix(n));
 
     collectSubDependencies();
     doneWithDeps_go();

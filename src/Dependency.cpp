@@ -107,23 +107,19 @@ Dependency::Dependency(std::string path)
     char original_file_buffer[PATH_MAX];
     std::string original_file;
 
-    if (isRpath(path))
-    {
+    if (isRpath(path)) {
         original_file = searchFilenameInRpaths(path);
     }
-    else if (not realpath(rtrim(path).c_str(), original_file_buffer))
-    {
+    else if (not realpath(rtrim(path).c_str(), original_file_buffer)) {
         std::cerr << "\n/!\\ WARNING : Cannot resolve path '" << path.c_str() << "'" << std::endl;
         original_file = path;
     }
-    else
-    {
+    else {
         original_file = original_file_buffer;
     }
 
     // check if given path is a symlink
-    if (original_file != rtrim(path))
-    {
+    if (original_file != rtrim(path)) {
         filename = stripPrefix(original_file);
         prefix = original_file.substr(0, original_file.rfind("/")+1);
         addSymlink(path);
@@ -235,18 +231,16 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
 
     // for symlinks
     const int symamount = symlinks.size();
-    parallel_for(symamount, [&](int start, int end)
+    for(int n=0; n<symamount; n++)
     {
-        for (int i=0; i<end; ++i)
+        command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
+        if(systemp(command) != 0)
         {
-            command = std::string("install_name_tool -change ") + symlinks[i] + " " + getInnerPath() + " " + file_to_fix;
-            if (systemp(command) != 0)
-            {
-                std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
-                exit(1);
-            }
+            std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
+            exit(1);
         }
-    });
+    }
+
 
     // FIXME - hackish
     if (missing_prefixes)
@@ -261,17 +255,14 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
 
         // for symlinks
         const int symamount = symlinks.size();
-        parallel_for(symamount, [&](int start, int end)
+        for(int n=0; n<symamount; n++)
         {
-            for (int i=0; i<end; ++i)
+            command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
+            if (systemp(command) != 0)
             {
-                command = std::string("install_name_tool -change ") + symlinks[i] + " " + getInnerPath() + " " + file_to_fix;
-                if (systemp(command) != 0)
-                {
-                    std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
-                    exit(1);
-                }
+                std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
+                exit(1);
             }
-        });
-    }
+        }//next
+    }// end if(missing_prefixes)
 }
