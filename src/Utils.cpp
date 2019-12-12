@@ -1,28 +1,3 @@
-/*
-The MIT License (MIT)
-
-Copyright (c) 2014 Marianne Gagnon
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
- */
-
-
 #include "Utils.h"
 #include "Dependency.h"
 #include "Settings.h"
@@ -33,13 +8,8 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
-using namespace std;
 
-/*
-void setInstallPath(string loc)
-{
-    path_to_libs_folder = loc;
-}*/
+using namespace std;
 
 void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
 {
@@ -48,13 +18,12 @@ void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
     string delimiters(delim);
 
     // skip delimiters at beginning.
-    string::size_type lastPos = str.find_first_not_of( delimiters , 0);
+    string::size_type lastPos = str.find_first_not_of(delimiters, 0);
 
     // find first "non-delimiter".
     string::size_type pos = str.find_first_of(delimiters, lastPos);
 
-    while (string::npos != pos || string::npos != lastPos)
-    {
+    while (string::npos != pos || string::npos != lastPos) {
         // found a token, add it to the vector.
         tokens.push_back(str.substr(lastPos, pos - lastPos));
 
@@ -64,61 +33,48 @@ void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
         // find next "non-delimiter"
         pos = str.find_first_of(delimiters, lastPos);
     }
-
 }
 
 
 
 bool fileExists( std::string filename )
 {
-    if (access( filename.c_str(), F_OK ) != -1)
-    {
+    if (access(filename.c_str(), F_OK) != -1) {
         return true; // file exists
     }
-    else
-    {
-        //std::cout << "access(filename) returned -1 on filename [" << filename << "] I will try trimming." << std::endl;
+    else {
         std::string delims = " \f\n\r\t\v";
         std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims) + 1);
         std::string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
         if (access( ftrimmed.c_str(), F_OK ) != -1)
-        {
             return true;
-        }
         else
-        {
-            //std::cout << "Still failed. Cannot find the specified file." << std::endl;
-            return false;// file doesn't exist
-        }
+            return false; // file doesn't exist
     }
 }
 
 void copyFile(string from, string to)
 {
-    bool override = Settings::canOverwriteFiles();
-    if(!override)
-    {
-        if(fileExists( to ))
-        {
+    bool overwrite = Settings::canOverwriteFiles();
+    if (!overwrite) {
+        if (fileExists(to)) {
             cerr << "\n\nError : File " << to.c_str() << " already exists. Remove it or enable overwriting." << endl;
             exit(1);
         }
     }
 
-    string override_permission = string(override ? "-f " : "-n ");
+    string overwrite_permission = string(overwrite ? "-f " : "-n ");
 
     // copy file to local directory
-    string command = string("cp ") + override_permission + from + string(" ") + to;
-    if( from != to && systemp( command ) != 0 )
-    {
+    string command = string("cp ") + overwrite_permission + from + string(" ") + to;
+    if (from != to && systemp(command) != 0) {
         cerr << "\n\nError : An error occured while trying to copy file " << from << " to " << to << endl;
         exit(1);
     }
 
     // give it write permission
     string command2 = string("chmod +w ") + to;
-    if( systemp( command2 ) != 0 )
-    {
+    if (systemp(command2) != 0) {
         cerr << "\n\nError : An error occured while trying to set write permissions on file " << to << endl;
         exit(1);
     }
@@ -126,45 +82,44 @@ void copyFile(string from, string to)
 
 std::string system_get_output(std::string cmd)
 {
-    FILE * command_output;
+    FILE* command_output;
     char output[128];
     int amount_read = 1;
 
     std::string full_output;
 
-    try
-    {
+    try {
         command_output = popen(cmd.c_str(), "r");
-        if(command_output == NULL) throw;
+        if (command_output == NULL)
+            throw;
 
-        while(amount_read > 0)
-        {
+        while (amount_read > 0) {
             amount_read = fread(output, 1, 127, command_output);
-            if(amount_read <= 0) break;
-            else
-            {
+            if (amount_read <= 0) {
+                break;
+            }
+            else {
                 output[amount_read] = '\0';
                 full_output += output;
             }
         }
     }
-    catch(...)
-    {
+    catch (...) {
         std::cerr << "An error occured while executing command " << cmd.c_str() << std::endl;
         pclose(command_output);
         return "";
     }
 
     int return_value = pclose(command_output);
-    if(return_value != 0) return "";
+    if (return_value != 0)
+        return "";
 
     return full_output;
 }
 
 int systemp(std::string& cmd)
 {
-    if(Settings::verboseOutput())
-    {
+    if (Settings::verboseOutput()) {
         std::cout << "    " << cmd.c_str() << std::endl;
     }
     return system(cmd.c_str());
@@ -173,17 +128,17 @@ int systemp(std::string& cmd)
 std::string getUserInputDirForFile(const std::string& filename)
 {
     const int searchPathAmount = Settings::searchPathAmount();
-    for(int n=0; n<searchPathAmount; n++)
-    {
+    for (int n=0; n<searchPathAmount; n++) {
         auto searchPath = Settings::searchPath(n);
-        if( !searchPath.empty() && searchPath[ searchPath.size()-1 ] != '/' ) searchPath += "/";
+        if(!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
+            searchPath += "/";
 
-        if( !fileExists( searchPath+filename ) ) {
+        if (!fileExists(searchPath+filename)) {
             continue;
         } else {
             std::cerr << (searchPath+filename) << " was found.\n"
                       << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: "
-                      << "Manually check the executable with 'otool -L'" << std::endl;
+                      << "Check the executable with 'otool -L'" << std::endl;
             return searchPath;
         }
     }
@@ -196,20 +151,20 @@ std::string getUserInputDirForFile(const std::string& filename)
         std::cin >> prefix;
         std::cout << std::endl;
 
-        if(prefix.compare("quit")==0) exit(1);
+        if (prefix.compare("quit") == 0)
+            exit(1);
 
-        if( !prefix.empty() && prefix[ prefix.size()-1 ] != '/' ) prefix += "/";
+        if (!prefix.empty() && prefix[prefix.size()-1] != '/')
+            prefix += "/";
 
-        if( !fileExists( prefix+filename ) )
-        {
+        if (!fileExists( prefix+filename)) {
             std::cerr << (prefix+filename) << " does not exist. Try again" << std::endl;
             continue;
         }
-        else
-        {
+        else {
             std::cerr << (prefix+filename) << " was found.\n"
                       << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: "
-                      << "Manually check the executable with 'otool -L'" << std::endl;
+                      << "Check the executable with 'otool -L'" << std::endl;
             return prefix;
         }
     }

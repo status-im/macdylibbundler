@@ -1,27 +1,3 @@
-/*
-The MIT License (MIT)
-
-Copyright (c) 2014 Marianne Gagnon
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
- */
-
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -31,7 +7,6 @@ THE SOFTWARE.
 
 #include "Utils.h"
 #include "DylibBundler.h"
-#include "ParallelFor.h"
 
 /*
  TODO
@@ -44,11 +19,9 @@ THE SOFTWARE.
 
 const std::string VERSION = "git";
 
-
 // FIXME - no memory management is done at all (anyway the program closes immediately so who cares?)
 
 std::string installPath = "";
-
 
 void showHelp()
 {
@@ -70,73 +43,59 @@ void showHelp()
 
 int main (int argc, char * const argv[])
 {
-
     // parse arguments
-    for(int i=0; i<argc; i++)
-    {
-        if(strcmp(argv[i],"-x")==0 or strcmp(argv[i],"--fix-file")==0)
-        {
+    for (int i=0; i<argc; i++) {
+        if (strcmp(argv[i],"-x") == 0 || strcmp(argv[i],"--fix-file") == 0) {
             i++;
             Settings::addFileToFix(argv[i]);
             continue;
         }
-        else if(strcmp(argv[i],"-b")==0 or strcmp(argv[i],"--bundle-deps")==0)
-        {
+        else if (strcmp(argv[i],"-b") == 0 || strcmp(argv[i],"--bundle-deps") == 0) {
             Settings::bundleLibs(true);
             continue;
         }
-        else if(strcmp(argv[i],"-p")==0 or strcmp(argv[i],"--install-path")==0)
-        {
+        else if (strcmp(argv[i],"-p") == 0 || strcmp(argv[i],"--install-path") == 0) {
             i++;
             Settings::inside_lib_path(argv[i]);
             continue;
         }
-        else if(strcmp(argv[i],"-i")==0 or strcmp(argv[i],"--ignore")==0)
-        {
+        else if (strcmp(argv[i],"-i") == 0 || strcmp(argv[i],"--ignore") == 0) {
             i++;
             Settings::ignore_prefix(argv[i]);
             continue;
         }
-        else if(strcmp(argv[i],"-d")==0 or strcmp(argv[i],"--dest-dir")==0)
-        {
+        else if (strcmp(argv[i],"-d") == 0 || strcmp(argv[i],"--dest-dir") == 0) {
             i++;
             Settings::destFolder(argv[i]);
             continue;
         }
-        else if(strcmp(argv[i],"-of")==0 or strcmp(argv[i],"--overwrite-files")==0)
-        {
+        else if (strcmp(argv[i],"-of") == 0 || strcmp(argv[i],"--overwrite-files") == 0) {
             Settings::canOverwriteFiles(true);
             continue;
         }
-        else if(strcmp(argv[i],"-od")==0 or strcmp(argv[i],"--overwrite-dir")==0)
-        {
+        else if (strcmp(argv[i],"-od") == 0 || strcmp(argv[i],"--overwrite-dir") == 0) {
             Settings::canOverwriteDir(true);
             Settings::canCreateDir(true);
             continue;
         }
-        else if(strcmp(argv[i],"-cd")==0 or strcmp(argv[i],"--create-dir")==0)
-        {
+        else if (strcmp(argv[i],"-cd") == 0 || strcmp(argv[i],"--create-dir") == 0) {
             Settings::canCreateDir(true);
             continue;
         }
-        else if(strcmp(argv[i],"-h")==0 or strcmp(argv[i],"--help")==0)
-        {
+        else if (strcmp(argv[i],"-h") == 0 || strcmp(argv[i],"--help") == 0) {
             showHelp();
             exit(0);
         }
-        if(strcmp(argv[i],"-s")==0 or strcmp(argv[i],"--search-path")==0)
-        {
+        if (strcmp(argv[i],"-s") == 0 || strcmp(argv[i],"--search-path") == 0) {
             i++;
             Settings::addSearchPath(argv[i]);
             continue;
         }
-        else if(strcmp(argv[i],"-q")==0 or strcmp(argv[i],"--quiet")==0)
-        {
+        else if (strcmp(argv[i],"-q") == 0 || strcmp(argv[i],"--quiet") == 0) {
             Settings::verboseOutput(false);
             continue;
         }
-        else if(i>0)
-        {
+        else if (i > 0) {
             // if we meet an unknown flag, abort
             // ignore first one cause it's usually the path to the executable
             std::cerr << "Unknown flag " << argv[i] << std::endl << std::endl;
@@ -145,8 +104,7 @@ int main (int argc, char * const argv[])
         }
     }
 
-    if(not Settings::bundleLibs() and Settings::fileToFixAmount()<1)
-    {
+    if (!Settings::bundleLibs() && Settings::fileToFixAmount() < 1) {
         showHelp();
         exit(0);
     }
@@ -154,8 +112,7 @@ int main (int argc, char * const argv[])
     std::cout << "* Collecting dependencies"; fflush(stdout);
 
     const int amount = Settings::fileToFixAmount();
-    std::cout << "# of files to fix: " << amount << std::endl;
-    for(int n=0; n<amount; n++)
+    for (int n=0; n<amount; n++)
         collectDependencies(Settings::fileToFix(n));
 
     collectSubDependencies();
