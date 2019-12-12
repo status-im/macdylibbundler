@@ -34,6 +34,7 @@ THE SOFTWARE.
 #include "Utils.h"
 #include "Settings.h"
 #include "Dependency.h"
+#include "ParallelFor.h"
 
 
 std::vector<Dependency> deps;
@@ -45,10 +46,13 @@ void changeLibPathsOnFile(std::string file_to_fix)
     std::cout << "\n* Fixing dependencies on " << file_to_fix.c_str() << std::endl;
 
     const int dep_amount = deps.size();
-    for(int n=0; n<dep_amount; n++)
+    parallel_for(dep_amount, [&](int start, int end)
     {
-        deps[n].fixFileThatDependsOnMe(file_to_fix);
-    }
+        for(int i=start; i<end; ++i)
+        {
+            deps[i].fixFileThatDependsOnMe(file_to_fix);
+        }
+    });
 }
 
 bool isRpath(const std::string& path)
@@ -147,16 +151,19 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
         rpaths_to_fix = found->second;
     }
 
-    for (size_t i=0; i < rpaths_to_fix.size(); ++i)
+    parallel_for(rpaths_to_fix.size(), [&](int start, int end)
     {
-        std::string command = std::string("install_name_tool -rpath ") +
-                rpaths_to_fix[i] + " " + Settings::inside_lib_path() + " " + file_to_fix;
-        if ( systemp(command) != 0)
+        for(int i=start; i<end; ++i)
         {
-            std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
-            exit(1);
+            std::string command = std::string("install_name_tool -rpath ") +
+                    rpaths_to_fix[i] + " " + Settings::inside_lib_path() + " " + file_to_fix;
+            if (systemp(command) != 0)
+            {
+                std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
+                exit(1);
+            }
         }
-    }
+    });
 }
 
 void addDependency(std::string path)
@@ -165,17 +172,21 @@ void addDependency(std::string path)
 
     // we need to check if this library was already added to avoid duplicates
     const int dep_amount = deps.size();
-    for(int n=0; n<dep_amount; n++)
+    parallel_for(dep_amount, [&](int start, int end)
     {
-        if(dep.mergeIfSameAs(deps[n])) return;
-    }
+        for(int i=start; i<end; ++i)
+        {
+            if(dep.mergeIfSameAs(deps[i]))
+                return;
+        }
+    });
 
     if(!Settings::isPrefixBundled(dep.getPrefix())) return;
 
     deps.push_back(dep);
 }
 
-/*
+/**
  *  Fill vector 'lines' with dependencies of given 'filename'
  */
 void collectDependencies(std::string filename, std::vector<std::string>& lines)
@@ -203,22 +214,27 @@ void collectDependencies(std::string filename)
     std::cout << "."; fflush(stdout);
 
     const int line_amount = lines.size();
-    for(int n=0; n<line_amount; n++)
+    parallel_for(line_amount, [&](int start, int end)
     {
-        std::cout << "."; fflush(stdout);
-        if(lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
-        if( lines[n].find(".framework") != std::string::npos ) continue; //Ignore frameworks, we cannot handle them
-
-        // trim useless info, keep only library name
-        std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-        if (isRpath(dep_path))
+        for(int i=start; i<end; ++i)
         {
-            collectRpathsForFilename(filename);
-        }
+            std::cout << "."; fflush(stdout);
 
-        addDependency(dep_path);
-    }
+            if(lines[i][0] != '\t')
+                continue; // only lines beginning with a tab interest us
+            if(lines[i].find(".framework") != std::string::npos)
+                continue; //Ignore frameworks, we cannot handle them
+
+            // trim useless info, keep only library name
+            std::string dep_path = lines[i].substr(1, lines[i].rfind(" (") - 1);
+            if(isRpath(dep_path))
+                collectRpathsForFilename(filename);
+
+            addDependency(dep_path);
+        }
+    });
 }
+
 void collectSubDependencies()
 {
     // print status to user
@@ -228,36 +244,43 @@ void collectSubDependencies()
     while(true)
     {
         dep_amount = deps.size();
-        for(int n=0; n<dep_amount; n++)
+        parallel_for(dep_amount, [&](int start, int end)
         {
-            std::cout << "."; fflush(stdout);
-            std::vector<std::string> lines;
-            std::string original_path = deps[n].getOriginalPath();
-            if (isRpath(original_path))
+            for(int i=start; i<end; ++i)
             {
-                original_path = searchFilenameInRpaths(original_path);
-            }
-            collectRpathsForFilename(original_path);
-            collectDependencies(original_path, lines);
+                std::cout << "."; fflush(stdout);
+                std::vector<std::string> lines;
+                std::string original_path = deps[i].getOriginalPath();
+                if (isRpath(original_path))
+                    original_path = searchFilenameInRpaths(original_path);
 
-            const int line_amount = lines.size();
-            for(int n=0; n<line_amount; n++)
-            {
-                if(lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
-                if( lines[n].find(".framework") != std::string::npos ) continue; //Ignore frameworks, we cannot handle them
+                collectRpathsForFilename(original_path);
+                collectDependencies(original_path, lines);
 
-                // trim useless info, keep only library name
-                std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-                if (isRpath(dep_path))
+                const int line_amount = lines.size();
+                for(int j=0; j<line_amount; j++)
+                parallel_for(line_amount, [&](int s, int e)
                 {
-                    collectRpathsForFilename(searchFilenameInRpaths(dep_path));
-                }
+                    for(int j=s; j<e; ++j)
+                    {
+                        if(lines[j][0] != '\t')
+                            continue; // only lines beginning with a tab interest us
+                        if(lines[j].find(".framework") != std::string::npos)
+                            continue; //Ignore frameworks, we cannot handle them
 
-                addDependency(dep_path);
-            }//next
-        }//next
+                        // trim useless info, keep only library name
+                        std::string dep_path = lines[j].substr(1, lines[j].rfind(" (") - 1);
+                        if (isRpath(dep_path))
+                            collectRpathsForFilename(searchFilenameInRpaths(dep_path));
 
-        if(deps.size() == dep_amount) break; // no more dependencies were added on this iteration, stop searching
+                        addDependency(dep_path);
+                    }
+                });
+            }
+        });
+
+        if(deps.size() == dep_amount)
+            break; // no more dependencies were added on this iteration, stop searching
     }
 }
 
@@ -319,18 +342,26 @@ void doneWithDeps_go()
     {
         createDestDir();
 
-        for(int n=0; n<dep_amount; n++)
+        // for(int n=0; n<dep_amount; n++)
+        parallel_for(dep_amount, [&](int start, int end)
         {
-            deps[n].copyYourself();
-            changeLibPathsOnFile(deps[n].getInstallPath());
-            fixRpathsOnFile(deps[n].getOriginalPath(), deps[n].getInstallPath());
-        }
+            for(int i=start; i<end; ++i)
+            {
+                deps[i].copyYourself();
+                changeLibPathsOnFile(deps[i].getInstallPath());
+                fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
+            }
+        });
     }
 
     const int fileToFixAmount = Settings::fileToFixAmount();
-    for(int n=0; n<fileToFixAmount; n++)
+    parallel_for(fileToFixAmount, [&](int start, int end)
     {
-        changeLibPathsOnFile(Settings::fileToFix(n));
-        fixRpathsOnFile(Settings::fileToFix(n), Settings::fileToFix(n));
-    }
+        for(int i=start; i<end; ++i)
+        {
+            changeLibPathsOnFile(Settings::fileToFix(i));
+            fixRpathsOnFile(Settings::fileToFix(i), Settings::fileToFix(i));
+        }
+    });
+
 }
