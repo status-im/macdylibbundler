@@ -52,6 +52,7 @@ void changeLibPathsOnFile(std::string file_to_fix)
         {
             deps[i].fixFileThatDependsOnMe(file_to_fix);
         }
+        pthread_exit(NULL);
     });
 }
 
@@ -163,6 +164,7 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
                 exit(1);
             }
         }
+        pthread_exit(NULL);
     });
 }
 
@@ -179,6 +181,7 @@ void addDependency(std::string path)
             if(dep.mergeIfSameAs(deps[i]))
                 return;
         }
+        pthread_exit(NULL);
     });
 
     if(!Settings::isPrefixBundled(dep.getPrefix())) return;
@@ -232,6 +235,7 @@ void collectDependencies(std::string filename)
 
             addDependency(dep_path);
         }
+        pthread_exit(NULL);
     });
 }
 
@@ -275,8 +279,10 @@ void collectSubDependencies()
 
                         addDependency(dep_path);
                     }
+                    pthread_exit(NULL);
                 });
             }
+            pthread_exit(NULL);
         });
 
         if(deps.size() == dep_amount)
@@ -351,6 +357,7 @@ void doneWithDeps_go()
                 changeLibPathsOnFile(deps[i].getInstallPath());
                 fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
             }
+            pthread_exit(NULL);
         });
     }
 
@@ -362,6 +369,7 @@ void doneWithDeps_go()
             changeLibPathsOnFile(Settings::fileToFix(i));
             fixRpathsOnFile(Settings::fileToFix(i), Settings::fileToFix(i));
         }
+        pthread_exit(NULL);
     });
 
 }

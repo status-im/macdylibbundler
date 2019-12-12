@@ -53,6 +53,7 @@ static void parallel_for(unsigned nb_elements,
                 std::cout << "Error:unable to create thread," << rc << std::endl;
                 exit(-1);
             }
+            std::cout << "pthread created" << std::endl;
         }
 
         // free attribute and wait for the other threads
