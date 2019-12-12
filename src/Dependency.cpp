@@ -246,7 +246,6 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
                 exit(1);
             }
         }
-        pthread_exit(NULL);
     });
 
     // FIXME - hackish
@@ -273,7 +272,6 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
                     exit(1);
                 }
             }
-            pthread_exit(NULL);
         });
     }
 }

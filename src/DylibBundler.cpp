@@ -52,7 +52,7 @@ void changeLibPathsOnFile(std::string file_to_fix)
         {
             deps[i].fixFileThatDependsOnMe(file_to_fix);
         }
-        pthread_exit(NULL);
+
     });
 }
 
@@ -152,8 +152,11 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
         rpaths_to_fix = found->second;
     }
 
-    parallel_for(rpaths_to_fix.size(), [&](int start, int end)
-    {
+    int start = 0;
+    int end = rpaths_to_fix.size();
+
+    // parallel_for(rpaths_to_fix.size(), [&](int start, int end)
+    // {
         for(int i=start; i<end; ++i)
         {
             std::string command = std::string("install_name_tool -rpath ") +
@@ -164,8 +167,8 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
                 exit(1);
             }
         }
-        pthread_exit(NULL);
-    });
+
+    // });
 }
 
 void addDependency(std::string path)
@@ -174,15 +177,17 @@ void addDependency(std::string path)
 
     // we need to check if this library was already added to avoid duplicates
     const int dep_amount = deps.size();
-    parallel_for(dep_amount, [&](int start, int end)
-    {
+    int start = 0;
+    int end = dep_amount;
+    // parallel_for(dep_amount, [&](int start, int end)
+    // {
         for(int i=start; i<end; ++i)
         {
             if(dep.mergeIfSameAs(deps[i]))
                 return;
         }
-        pthread_exit(NULL);
-    });
+        // pthread_exit(NULL);
+    // });
 
     if(!Settings::isPrefixBundled(dep.getPrefix())) return;
 
@@ -200,6 +205,7 @@ void collectDependencies(std::string filename, std::vector<std::string>& lines)
 
     if(output.find("can't open file")!=std::string::npos or output.find("No such file")!=std::string::npos or output.size()<1)
     {
+        std::cerr << output << std::endl;
         std::cerr << "Cannot find file " << filename << " to read its dependencies" << std::endl;
         exit(1);
     }
@@ -217,8 +223,10 @@ void collectDependencies(std::string filename)
     std::cout << "."; fflush(stdout);
 
     const int line_amount = lines.size();
-    parallel_for(line_amount, [&](int start, int end)
-    {
+    int start = 0;
+    int end = line_amount;
+    // parallel_for(line_amount, [&](int start, int end)
+    // {
         for(int i=start; i<end; ++i)
         {
             std::cout << "."; fflush(stdout);
@@ -235,8 +243,8 @@ void collectDependencies(std::string filename)
 
             addDependency(dep_path);
         }
-        pthread_exit(NULL);
-    });
+        // pthread_exit(NULL);
+    // });
 }
 
 void collectSubDependencies()
@@ -248,8 +256,10 @@ void collectSubDependencies()
     while(true)
     {
         dep_amount = deps.size();
-        parallel_for(dep_amount, [&](int start, int end)
-        {
+        int start = 0;
+        int end = deps.size();
+        // parallel_for(dep_amount, [&](int start, int end)
+        // {
             for(int i=start; i<end; ++i)
             {
                 std::cout << "."; fflush(stdout);
@@ -262,9 +272,10 @@ void collectSubDependencies()
                 collectDependencies(original_path, lines);
 
                 const int line_amount = lines.size();
-                for(int j=0; j<line_amount; j++)
-                parallel_for(line_amount, [&](int s, int e)
-                {
+                int s = 0;
+                int e = line_amount;
+                // parallel_for(line_amount, [&](int s, int e)
+                // {
                     for(int j=s; j<e; ++j)
                     {
                         if(lines[j][0] != '\t')
@@ -279,11 +290,9 @@ void collectSubDependencies()
 
                         addDependency(dep_path);
                     }
-                    pthread_exit(NULL);
-                });
+                // });
             }
-            pthread_exit(NULL);
-        });
+        // });
 
         if(deps.size() == dep_amount)
             break; // no more dependencies were added on this iteration, stop searching
@@ -338,9 +347,7 @@ void doneWithDeps_go()
     const int dep_amount = deps.size();
     // print info to user
     for(int n=0; n<dep_amount; n++)
-    {
         deps[n].print();
-    }
     std::cout << std::endl;
 
     // copy files if requested by user
@@ -357,7 +364,6 @@ void doneWithDeps_go()
                 changeLibPathsOnFile(deps[i].getInstallPath());
                 fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
             }
-            pthread_exit(NULL);
         });
     }
 
@@ -369,7 +375,7 @@ void doneWithDeps_go()
             changeLibPathsOnFile(Settings::fileToFix(i));
             fixRpathsOnFile(Settings::fileToFix(i), Settings::fileToFix(i));
         }
-        pthread_exit(NULL);
+
     });
 
 }
