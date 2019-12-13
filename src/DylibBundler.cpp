@@ -1,20 +1,41 @@
 #include "DylibBundler.h"
+
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
 #include <set>
 #include <map>
+#include <numeric>
+#include <dispatch/dispatch.h>
 #ifdef __linux
 #include <linux/limits.h>
 #endif
+
 #include "Utils.h"
 #include "Settings.h"
 #include "Dependency.h"
-#include "ParallelFor.h"
+// #include "ParallelFor.h"
 
 std::vector<Dependency> deps;
 std::set<std::string> rpaths;
 std::map<std::string, std::vector<std::string> > rpaths_per_file;
+
+template<typename It, typename F>
+inline void parallel_for_each(It a, It b, F&& f)
+{
+    size_t count = std::distance(a,b);
+    using data_t = std::pair<It, F>;
+    data_t helper = data_t(a, std::forward<F>(f));
+    dispatch_apply_f(count,
+                     dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+                     &helper,
+                     [](void* ctx, size_t cnt) {
+        data_t* d = static_cast<data_t*>(ctx);
+        auto elem_it = std::next(d->first, cnt);
+        (*d).second(*(elem_it));
+    });
+}
+
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
@@ -106,7 +127,7 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
 {
     std::vector<std::string> rpaths_to_fix;
-    std::map<std::string, std::vector<std::string> >::iterator found = rpaths_per_file.find(original_file);
+    std::map<std::string, std::vector<std::string>>::iterator found = rpaths_per_file.find(original_file);
     if (found != rpaths_per_file.end())
         rpaths_to_fix = found->second;
 
@@ -252,6 +273,36 @@ void createDestDir()
 
 }
 
+// void doneWithDeps_go()
+// {
+//     std::cout << std::endl;
+//     const int dep_amount = deps.size();
+//     // print info to user
+//     for (int n=0; n<dep_amount; n++)
+//         deps[n].print();
+//     std::cout << std::endl;
+
+//     // copy files if requested by user
+//     if (Settings::bundleLibs()) {
+//         createDestDir();
+//         parallel_for(dep_amount, [&](int start, int end) {
+//             for (int i=start; i<end; ++i) {
+//                 deps[i].copyYourself();
+//                 changeLibPathsOnFile(deps[i].getInstallPath());
+//                 fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
+//             }
+//         });
+//     }
+
+//     const int fileToFixAmount = Settings::fileToFixAmount();
+//     parallel_for(fileToFixAmount, [&](int start, int end) {
+//         for (int i=start; i<end; ++i) {
+//             changeLibPathsOnFile(Settings::fileToFix(i));
+//             fixRpathsOnFile(Settings::fileToFix(i), Settings::fileToFix(i));
+//         }
+//     });
+// }
+
 void doneWithDeps_go()
 {
     std::cout << std::endl;
@@ -264,20 +315,18 @@ void doneWithDeps_go()
     // copy files if requested by user
     if (Settings::bundleLibs()) {
         createDestDir();
-        parallel_for(dep_amount, [&](int start, int end) {
-            for (int i=start; i<end; ++i) {
-                deps[i].copyYourself();
-                changeLibPathsOnFile(deps[i].getInstallPath());
-                fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
-            }
+        parallel_for_each(deps.begin(), deps.end(), [](Dependency& dep) {
+            dep.copyYourself();
+            changeLibPathsOnFile(dep.getInstallPath());
+            fixRpathsOnFile(dep.getOriginalPath(), dep.getInstallPath());
         });
     }
 
+    auto files = Settings::filesToFix();
     const int fileToFixAmount = Settings::fileToFixAmount();
-    parallel_for(fileToFixAmount, [&](int start, int end) {
-        for (int i=start; i<end; ++i) {
-            changeLibPathsOnFile(Settings::fileToFix(i));
-            fixRpathsOnFile(Settings::fileToFix(i), Settings::fileToFix(i));
-        }
+
+    parallel_for_each(files.begin(), files.end(), [](const std::string& file) {
+        changeLibPathsOnFile(file);
+        fixRpathsOnFile(file, file);
     });
 }

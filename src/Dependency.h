@@ -17,16 +17,16 @@ public:
 
     void print();
 
-    std::string getOriginalFileName() const{ return filename; }
-    std::string getOriginalPath() const{ return prefix+filename; }
+    std::string getOriginalFileName() const { return filename; }
+    std::string getOriginalPath() const { return prefix + filename; }
     std::string getInstallPath();
     std::string getInnerPath();
 
     void addSymlink(std::string s);
-    int getSymlinkAmount() const{ return symlinks.size(); }
+    int getSymlinkAmount() const { return symlinks.size(); }
 
-    std::string getSymlink(const int i) const{ return symlinks[i]; }
-    std::string getPrefix() const{ return prefix; }
+    std::string getSymlink(const int i) const { return symlinks[i]; }
+    std::string getPrefix() const { return prefix; }
 
     void copyYourself();
     void fixFileThatDependsOnMe(std::string file);

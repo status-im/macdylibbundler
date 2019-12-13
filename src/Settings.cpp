@@ -34,6 +34,7 @@ std::vector<std::string> files;
 void addFileToFix(std::string path) { files.push_back(path); }
 int fileToFixAmount() { return files.size(); }
 std::string fileToFix(const int n) { return files[n]; }
+std::vector<std::string> filesToFix() { return files; }
 
 std::string inside_path_str = "@executable_path/../libs/";
 std::string inside_lib_path() { return inside_path_str; }

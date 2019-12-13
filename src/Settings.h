@@ -27,6 +27,7 @@ void destFolder(std::string path);
 void addFileToFix(std::string path);
 int fileToFixAmount();
 std::string fileToFix(const int n);
+std::vector<std::string> filesToFix();
 
 std::string inside_lib_path();
 void inside_lib_path(std::string p);
