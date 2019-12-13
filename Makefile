@@ -1,8 +1,9 @@
 DESTDIR=
 PREFIX=/usr/local
 CXX=clang++
-CFLAGS=-O2
+LD=`xcrun -f clang++`
 CXXFLAGS=-O2 -std=c++17
+LDFLAGS=-std=c++17
 
 all: dylibbundler
 
@@ -12,7 +13,7 @@ dylibbundler:
 	$(CXX) $(CXXFLAGS) -c -I./src ./src/Dependency.cpp -o ./Dependency.o
 	$(CXX) $(CXXFLAGS) -c -I./src ./src/main.cpp -o ./main.o
 	$(CXX) $(CXXFLAGS) -c -I./src ./src/Utils.cpp -o ./Utils.o
-	$(CXX) $(CXXFLAGS) -o ./dylibbundler ./Settings.o ./DylibBundler.o ./Dependency.o ./main.o ./Utils.o
+	$(LD) ${LDFLAGS} -o ./dylibbundler ./Settings.o ./DylibBundler.o ./Dependency.o ./main.o ./Utils.o
 
 clean:
 	rm -f *.o
