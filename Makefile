@@ -1,7 +1,7 @@
 DESTDIR=
 PREFIX=/usr/local
 CXX=clang++
-LD=`xcrun -f clang++`
+LD=$(shell xcrun -f clang++)
 CXXFLAGS=-O2 -std=c++17
 LDFLAGS=-std=c++17
 

@@ -10,7 +10,7 @@ inline void parallel_for_each(It a, It b, F&& f)
     using data_t = std::pair<It, F>;
     data_t helper = data_t(a, std::forward<F>(f));
     dispatch_apply_f(count,
-                     dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+                     dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0),
                      &helper,
                      [](void* ctx, size_t cnt) {
         data_t* d = static_cast<data_t*>(ctx);
