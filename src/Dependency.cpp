@@ -1,19 +1,21 @@
-#include <algorithm>
-#include <functional>
-#include <cctype>
-#include <locale>
 #include "Dependency.h"
-#include <iostream>
+
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
+#include <locale>
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <stdlib.h>
 #include <sys/param.h>
+
 #include "Utils.h"
 #include "Settings.h"
 #include "DylibBundler.h"
-
-#include <stdlib.h>
-#include <sstream>
-#include <vector>
+#include "ParallelForEach.h"
 
 std::string stripPrefix(std::string in)
 {
@@ -193,14 +195,13 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
     }
 
     // for symlinks
-    const int symamount = symlinks.size();
-    for(int n=0; n<symamount; n++) {
-        command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
+    parallel_for_each(symlinks.begin(), symlinks.end(), [&](const std::string& symlink) {
+        command = std::string("install_name_tool -change ") + symlink + " " + getInnerPath() + " " + file_to_fix;
         if(systemp(command) != 0) {
             std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
             exit(1);
         }
-    }
+    });
 
     // FIXME - hackish
     if (missing_prefixes) {
@@ -212,13 +213,12 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
         }
 
         // for symlinks
-        const int symamount = symlinks.size();
-        for(int n=0; n<symamount; n++) {
-            command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
+        parallel_for_each(symlinks.begin(), symlinks.end(), [&](const std::string& symlink) {
+            command = std::string("install_name_tool -change ") + symlink + " " + getInnerPath() + " " + file_to_fix;
             if (systemp(command) != 0) {
                 std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
                 exit(1);
             }
-        }
+        });
     }
 }

@@ -56,11 +56,9 @@ bool fileExists( std::string filename )
 void copyFile(string from, string to)
 {
     bool overwrite = Settings::canOverwriteFiles();
-    if (!overwrite) {
-        if (fileExists(to)) {
-            cerr << "\n\nError : File " << to.c_str() << " already exists. Remove it or enable overwriting." << endl;
-            exit(1);
-        }
+    if (fileExists(to) && !overwrite) {
+        cerr << "\n\nError : File " << to.c_str() << " already exists. Remove it or enable overwriting." << endl;
+        exit(1);
     }
 
     string overwrite_permission = string(overwrite ? "-f " : "-n ");
@@ -130,12 +128,13 @@ std::string getUserInputDirForFile(const std::string& filename)
     const int searchPathAmount = Settings::searchPathAmount();
     for (int n=0; n<searchPathAmount; n++) {
         auto searchPath = Settings::searchPath(n);
-        if(!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
+        if (!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
             searchPath += "/";
 
         if (!fileExists(searchPath+filename)) {
             continue;
-        } else {
+        }
+        else {
             std::cerr << (searchPath+filename) << " was found.\n"
                       << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: "
                       << "Check the executable with 'otool -L'" << std::endl;
@@ -157,7 +156,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         if (!prefix.empty() && prefix[prefix.size()-1] != '/')
             prefix += "/";
 
-        if (!fileExists( prefix+filename)) {
+        if (!fileExists(prefix+filename)) {
             std::cerr << (prefix+filename) << " does not exist. Try again" << std::endl;
             continue;
         }

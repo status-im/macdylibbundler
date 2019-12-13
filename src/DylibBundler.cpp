@@ -1,41 +1,23 @@
 #include "DylibBundler.h"
 
-#include <iostream>
 #include <cstdio>
 #include <cstdlib>
-#include <set>
+#include <iostream>
 #include <map>
 #include <numeric>
-#include <dispatch/dispatch.h>
+#include <set>
 #ifdef __linux
 #include <linux/limits.h>
 #endif
 
-#include "Utils.h"
-#include "Settings.h"
 #include "Dependency.h"
-// #include "ParallelFor.h"
+#include "ParallelForEach.h"
+#include "Settings.h"
+#include "Utils.h"
 
 std::vector<Dependency> deps;
 std::set<std::string> rpaths;
-std::map<std::string, std::vector<std::string> > rpaths_per_file;
-
-template<typename It, typename F>
-inline void parallel_for_each(It a, It b, F&& f)
-{
-    size_t count = std::distance(a,b);
-    using data_t = std::pair<It, F>;
-    data_t helper = data_t(a, std::forward<F>(f));
-    dispatch_apply_f(count,
-                     dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-                     &helper,
-                     [](void* ctx, size_t cnt) {
-        data_t* d = static_cast<data_t*>(ctx);
-        auto elem_it = std::next(d->first, cnt);
-        (*d).second(*(elem_it));
-    });
-}
-
+std::map<std::string, std::vector<std::string>> rpaths_per_file;
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
@@ -131,17 +113,18 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
     if (found != rpaths_per_file.end())
         rpaths_to_fix = found->second;
 
-    for (size_t i=0; i < rpaths_to_fix.size(); ++i) {
+    // for (size_t i=0; i < rpaths_to_fix.size(); ++i) {
+    parallel_for_each(rpaths_to_fix.begin(), rpaths_to_fix.end(), [&](const std::string& rpath_to_fix) {
         std::string command =
             std::string("install_name_tool -rpath ")
-                + rpaths_to_fix[i] + " "
+                + rpath_to_fix + " "
                 + Settings::inside_lib_path() + " "
                 + file_to_fix;
         if (systemp(command) != 0) {
             std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
             exit(1);
         }
-    }
+    });
 }
 
 void addDependency(std::string path)
@@ -317,23 +300,14 @@ void doneWithDeps_go()
         createDestDir();
         parallel_for_each(deps.begin(), deps.end(), [](Dependency& dep) {
             dep.copyYourself();
-            std::cout << "\n* Fixing dependencies on " << dep.getInstallPath().c_str() << std::endl;
-            parallel_for_each(deps.begin(), deps.end(), [&](Dependency& dep) {
-                dep.fixFileThatDependsOnMe(dep.getInstallPath());
-            });
+            changeLibPathsOnFile(dep.getInstallPath());
             fixRpathsOnFile(dep.getOriginalPath(), dep.getInstallPath());
         });
     }
 
     auto files = Settings::filesToFix();
-    const int fileToFixAmount = Settings::fileToFixAmount();
-
     parallel_for_each(files.begin(), files.end(), [](const std::string& file) {
-        std::cout << "\n* Fixing dependencies on " << file.c_str() << std::endl;
-        const int dep_amount = deps.size();
-        parallel_for_each(deps.begin(), deps.end(), [&](Dependency& dep) {
-            dep.fixFileThatDependsOnMe(file);
-        });
+        changeLibPathsOnFile(file);
         fixRpathsOnFile(file, file);
     });
 }
