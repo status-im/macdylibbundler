@@ -317,7 +317,10 @@ void doneWithDeps_go()
         createDestDir();
         parallel_for_each(deps.begin(), deps.end(), [](Dependency& dep) {
             dep.copyYourself();
-            changeLibPathsOnFile(dep.getInstallPath());
+            std::cout << "\n* Fixing dependencies on " << dep.getInstallPath().c_str() << std::endl;
+            parallel_for_each(deps.begin(), deps.end(), [&](Dependency& dep) {
+                dep.fixFileThatDependsOnMe(dep.getInstallPath());
+            });
             fixRpathsOnFile(dep.getOriginalPath(), dep.getInstallPath());
         });
     }
@@ -326,7 +329,11 @@ void doneWithDeps_go()
     const int fileToFixAmount = Settings::fileToFixAmount();
 
     parallel_for_each(files.begin(), files.end(), [](const std::string& file) {
-        changeLibPathsOnFile(file);
+        std::cout << "\n* Fixing dependencies on " << file.c_str() << std::endl;
+        const int dep_amount = deps.size();
+        parallel_for_each(deps.begin(), deps.end(), [&](Dependency& dep) {
+            dep.fixFileThatDependsOnMe(file);
+        });
         fixRpathsOnFile(file, file);
     });
 }
