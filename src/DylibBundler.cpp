@@ -6,14 +6,11 @@
 #include <map>
 #include <numeric>
 #include <set>
-
-#include <sys/wait.h>
 #ifdef __linux
 #include <linux/limits.h>
 #endif
 
 #include "Dependency.h"
-// #include "ParallelForEach.h"
 #include "Settings.h"
 #include "Utils.h"
 
@@ -21,32 +18,31 @@ std::vector<Dependency> deps;
 std::map<std::string, std::vector<Dependency>> deps_per_file;
 std::set<std::string> rpaths;
 std::map<std::string, std::vector<std::string>> rpaths_per_file;
+std::map<std::string, bool> deps_collected;
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
-    std::cout << "\n* Fixing dependencies on " << file_to_fix << std::endl;
+    if (deps_collected.find(file_to_fix) == deps_collected.end())
+        collectDependencies(file_to_fix);
 
-    // const int dep_amount = deps.size();
+    std::cout << "\n* Fixing dependencies on " << file_to_fix << "\n";
+
     std::vector<Dependency> deps_in_file = deps_per_file[file_to_fix];
     const int dep_amount = deps_in_file.size();
-    for (int n=0; n<dep_amount; ++n) {
-        // deps[n].fixFileThatDependsOnMe(file_to_fix);
+    for (int n=0; n<dep_amount; ++n)
         deps_in_file[n].fixFileThatDependsOnMe(file_to_fix);
-    }
 }
 
 bool isRpath(const std::string& path)
 {
-    std::cout << "path: " << path << std::endl;
     size_t result = path.find("@rpath");
-    std::cout << "isRpath? " << (result == 0 ? "yes" : "no") << std::endl;
     return (result == 0);
 }
 
 void collectRpaths(const std::string& filename)
 {
     if (!fileExists(filename)) {
-        std::cerr << "\n/!\\ WARNING : can't collect rpaths for nonexistent file '" << filename << "'\n";
+        std::cerr << "\n/!\\ WARNING: Can't collect rpaths for nonexistent file '" << filename << "'.\n";
         return;
     }
 
@@ -66,7 +62,7 @@ void collectRpaths(const std::string& filename)
             size_t start_pos = line.find("path ");
             size_t end_pos = line.find(" (");
             if (start_pos == std::string::npos || end_pos == std::string::npos) {
-                std::cerr << "\n/!\\ WARNING: Unexpected LC_RPATH format\n";
+                std::cerr << "\n/!\\ WARNING: Unexpected LC_RPATH format.\n";
                 continue;
             }
             start_pos += 5;
@@ -86,10 +82,8 @@ void collectRpaths(const std::string& filename)
 
 void collectRpathsForFilename(const std::string& filename)
 {
-    std::cout << "collecting rpaths for: " << filename << std::endl;
-    if (rpaths_per_file.find(filename) == rpaths_per_file.end()) {
+    if (rpaths_per_file.find(filename) == rpaths_per_file.end())
         collectRpaths(filename);
-    }
 }
 
 std::string searchFilenameInRpaths(const std::string& rpath_file)
@@ -97,7 +91,6 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
     char buffer[PATH_MAX];
     std::string fullpath;
     std::string suffix = rpath_file.substr(7, rpath_file.size()-6);
-    std::cout << "suffix: " << suffix << std::endl;
 
     for (std::set<std::string>::iterator it = rpaths.begin(); it != rpaths.end(); ++it) {
         std::string path = *it + "/" + suffix;
@@ -109,10 +102,10 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
 
     if (fullpath.empty()) {
         if (Settings::verboseOutput())
-            std::cerr << "\n/!\\ WARNING : can't get path for '" << rpath_file << "'\n";
+            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'.\n";
         fullpath = getUserInputDirForFile(suffix) + suffix;
         if (!Settings::verboseOutput() && fullpath.empty())
-            std::cerr << "\n/!\\ WARNING : can't get path for '" << rpath_file << "'\n";
+            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'.\n";
         if (realpath(fullpath.c_str(), buffer))
             fullpath = buffer;
     }
@@ -134,7 +127,7 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
                 + Settings::inside_lib_path() + " "
                 + file_to_fix;
         if (systemp(command) != 0) {
-            std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
+            std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix dependencies of " << file_to_fix << ".\n";
             exit(1);
         }
     }
@@ -190,21 +183,18 @@ void addDependency(std::string path, std::string filename)
 // Fill |lines| with dependencies of given |filename|
 void collectDependencies(std::string filename, std::vector<std::string>& lines)
 {
-    std::cout << "collecting deps for: " << filename << std::endl;
-
     std::string cmd = "otool -L " + filename;
     std::string output = system_get_output(cmd);
 
-    if (
-        output.find("can't open file") != std::string::npos ||
-        output.find("No such file") != std::string::npos ||
-        output.size() < 1
-    ) {
-        std::cerr << "Cannot find file " << filename << " to read its dependencies" << std::endl;
+    if (output.find("can't open file") != std::string::npos
+            || output.find("No such file") != std::string::npos
+            || output.size() < 1) {
+        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << filename << " to read its dependencies.\n";
         exit(1);
     }
     // split output
     tokenize(output, "\n", &lines);
+    deps_collected[filename] = true;
 }
 
 void collectDependencies(std::string filename)
@@ -212,22 +202,19 @@ void collectDependencies(std::string filename)
     std::vector<std::string> lines;
     collectDependencies(filename, lines);
 
-    // std::cout << "."; fflush(stdout);
-
     const int line_amount = lines.size();
     for (int n=0; n<line_amount; n++) {
-        // std::cout << "."; fflush(stdout);
+        // only lines beginning with a tab interest us
         if (lines[n][0] != '\t')
-            continue; // only lines beginning with a tab interest us
+            continue;
+        // ignore frameworks, we cannot handle them
         if (lines[n].find(".framework") != std::string::npos)
-            continue; // ignore frameworks, we cannot handle them
+            continue;
         // trim useless info, keep only library path
         std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-        if (isRpath(dep_path)) {
-            std::cout << "collecting rpaths for " << filename << std::endl;
+        if (isRpath(dep_path))
             collectRpathsForFilename(filename);
-        }
-        // addDependency(dep_path);
+
         addDependency(dep_path, filename);
     }
 }
@@ -241,49 +228,51 @@ void collectSubDependencies()
         dep_amount = deps.size();
 
         for (int n=0; n<dep_amount; n++) {
-            // std::cout << "."; fflush(stdout);
-            std::vector<std::string> lines;
             std::string original_path = deps[n].getOriginalPath();
             if (isRpath(original_path))
                 original_path = searchFilenameInRpaths(original_path);
 
             collectRpathsForFilename(original_path);
+
+            std::vector<std::string> lines;
             collectDependencies(original_path, lines);
 
             const int line_amount = lines.size();
             for (int n=0; n<line_amount; n++) {
+                // only lines beginning with a tab interest us
                 if (lines[n][0] != '\t')
-                    continue; // only lines beginning with a tab interest us
+                    continue;
+                // ignore frameworks, we cannot handle them
                 if (lines[n].find(".framework") != std::string::npos)
-                    continue; //Ignore frameworks, we cannot handle them
+                    continue;
                 // trim useless info, keep only library name
                 std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
                 if (isRpath(dep_path)) {
                     dep_path = searchFilenameInRpaths(dep_path);
                     collectRpathsForFilename(dep_path);
                 }
-                // addDependency(dep_path);
+
                 addDependency(dep_path, dep_path);
             }
         }
-
+        // if no more dependencies were added on this iteration, stop searching
         if (deps.size() == dep_amount)
-            break; // no more dependencies were added on this iteration, stop searching
+            break;
     }
 }
 
 void createDestDir()
 {
     std::string dest_folder = Settings::destFolder();
-    std::cout << "* Checking output directory " << dest_folder << std::endl;
+    std::cout << "* Checking output directory " << dest_folder << "\n";
 
     bool dest_exists = fileExists(dest_folder);
 
     if (dest_exists && Settings::canOverwriteDir()) {
-        std::cout << "* Erasing old output directory " << dest_folder << std::endl;
+        std::cout << "* Erasing old output directory " << dest_folder << "\n";
         std::string command = std::string("rm -r ") + dest_folder;
         if (systemp(command) != 0) {
-            std::cerr << "\n\nError : An error occured while attempting to overwrite dest folder." << std::endl;
+            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite dest folder.\n";
             exit(1);
         }
         dest_exists = false;
@@ -291,59 +280,29 @@ void createDestDir()
 
     if (!dest_exists) {
         if (Settings::canCreateDir()) {
-            std::cout << "* Creating output directory " << dest_folder << std::endl;
+            std::cout << "* Creating output directory " << dest_folder << "\n";
             std::string command = std::string("mkdir -p ") + dest_folder;
             if (systemp(command) != 0) {
-                std::cerr << "\n\nError : An error occured while creating dest folder." << std::endl;
+                std::cerr << "\n\n/!\\ ERROR: An error occured while creating dest folder.\n";
                 exit(1);
             }
         }
         else {
-            std::cerr << "\n\nError : Dest folder does not exist. Create it or pass the appropriate flag for automatic dest dir creation." << std::endl;
+            std::cerr << "\n\n/!\\ ERROR: Dest folder does not exist. Create it or pass the appropriate flag for automatic dest dir creation.\n";
             exit(1);
         }
     }
 
 }
 
-// void doneWithDeps_go()
-// {
-//     std::cout << std::endl;
-//     const int dep_amount = deps.size();
-//     // print info to user
-//     for (int n=0; n<dep_amount; n++)
-//         deps[n].print();
-//     std::cout << std::endl;
-
-//     // copy files if requested by user
-//     if (Settings::bundleLibs()) {
-//         createDestDir();
-//         parallel_for(dep_amount, [&](int start, int end) {
-//             for (int i=start; i<end; ++i) {
-//                 deps[i].copyYourself();
-//                 changeLibPathsOnFile(deps[i].getInstallPath());
-//                 fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
-//             }
-//         });
-//     }
-
-//     const int fileToFixAmount = Settings::fileToFixAmount();
-//     parallel_for(fileToFixAmount, [&](int start, int end) {
-//         for (int i=start; i<end; ++i) {
-//             changeLibPathsOnFile(Settings::fileToFix(i));
-//             fixRpathsOnFile(Settings::fileToFix(i), Settings::fileToFix(i));
-//         }
-//     });
-// }
-
 void doneWithDeps_go()
 {
     const int dep_amount = deps.size();
 
-    std::cout << std::endl;
+    std::cout << "\n";
     for (int n=0; n<dep_amount; n++)
         deps[n].print();
-    std::cout << std::endl;
+    std::cout << "\n";
 
     // copy files if requested by user
     if (Settings::bundleLibs()) {
@@ -355,12 +314,6 @@ void doneWithDeps_go()
             fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
         }
     }
-
-    // auto files = Settings::filesToFix();
-    // parallel_for_each(files.begin(), files.end(), [](const std::string& file) {
-    //     changeLibPathsOnFile(file);
-    //     fixRpathsOnFile(file, file);
-    // });
 
     const int fileToFixAmount = Settings::fileToFixAmount();
     for (int n=0; n<fileToFixAmount; n++) {

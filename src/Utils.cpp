@@ -51,7 +51,7 @@ void copyFile(std::string from, std::string to)
 {
     bool overwrite = Settings::canOverwriteFiles();
     if (fileExists(to) && !overwrite) {
-        std::cerr << "\n\nError : File " << to << " already exists. Remove it or enable overwriting." << std::endl;
+        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting." << "\n";
         exit(1);
     }
 
@@ -60,14 +60,14 @@ void copyFile(std::string from, std::string to)
     // copy file to local directory
     std::string command = std::string("cp ") + overwrite_permission + from + std::string(" ") + to;
     if (from != to && systemp(command) != 0) {
-        std::cerr << "\n\nError : An error occured while trying to copy file " << from << " to " << to << std::endl;
+        std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << "\n";
         exit(1);
     }
 
     // give it write permission
     std::string command2 = std::string("chmod +w ") + to;
     if (systemp(command2) != 0) {
-        std::cerr << "\n\nError : An error occured while trying to set write permissions on file " << to << std::endl;
+        std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << "\n";
         exit(1);
     }
 }
@@ -96,7 +96,7 @@ std::string system_get_output(std::string cmd)
         }
     }
     catch (...) {
-        std::cerr << "An error occured while executing command " << cmd << std::endl;
+        std::cerr << "An error occured while executing command " << cmd << "\n";
         pclose(command_output);
         return "";
     }
@@ -111,7 +111,7 @@ std::string system_get_output(std::string cmd)
 int systemp(std::string& cmd)
 {
     if (Settings::verboseOutput()) {
-        std::cout << "    " << cmd << std::endl;
+        std::cout << "    " << cmd << "\n";
     }
     return system(cmd.c_str());
 }
@@ -129,18 +129,21 @@ std::string getUserInputDirForFile(const std::string& filename)
         else {
             if (Settings::verboseOutput()) {
                 std::cerr << (searchPath+filename) << " was found.\n"
-                          << "/!\\ dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << std::endl;
+                          << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << "\n";
             }
             return searchPath;
         }
     }
 
     while (true) {
-        std::cout << "Please specify the directory where this library is located (or enter 'quit' to abort): ";  fflush(stdout);
+        std::cout << "\nPlease specify the directory where this library is located (or enter 'quit' to abort): ";
+        // fflush(stdout);
 
         std::string prefix;
         std::cin >> prefix;
-        std::cout << std::endl;
+        // std::cout << std::endl;
+
+        // getline(std::cin, prefix);
 
         if (prefix.compare("quit") == 0)
             exit(1);
@@ -149,14 +152,12 @@ std::string getUserInputDirForFile(const std::string& filename)
             prefix += "/";
 
         if (!fileExists(prefix+filename)) {
-            std::cerr << (prefix+filename) << " does not exist. Try again" << std::endl;
+            std::cerr << (prefix+filename) << " does not exist. Try again\n";
             continue;
         }
         else {
-            if (Settings::verboseOutput()) {
-                std::cerr << (prefix+filename) << " was found.\n"
-                          << "/!\\ dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << std::endl;
-            }
+            std::cerr << (prefix+filename) << " was found.\n"
+                      << "/!\\ WARNINGS: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
             return prefix;
         }
     }
