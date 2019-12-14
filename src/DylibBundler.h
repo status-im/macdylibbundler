@@ -1,5 +1,5 @@
-#ifndef _crawler_
-#define _crawler_
+#ifndef _DYLIB_BUNDLER_H_
+#define _DYLIB_BUNDLER_H_
 
 #include <string>
 

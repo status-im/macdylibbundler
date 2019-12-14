@@ -1,5 +1,4 @@
 #include "Settings.h"
-#include <vector>
 
 namespace Settings {
 
@@ -36,7 +35,7 @@ int fileToFixAmount() { return files.size(); }
 std::string fileToFix(const int n) { return files[n]; }
 std::vector<std::string> filesToFix() { return files; }
 
-std::string inside_path_str = "@executable_path/../libs/";
+std::string inside_path_str = "@executable_path/../Frameworks/";
 std::string inside_lib_path() { return inside_path_str; }
 void inside_lib_path(std::string p)
 {
@@ -72,6 +71,8 @@ bool isPrefixBundled(std::string prefix)
     if (prefix.find("@executable_path") != std::string::npos)
         return false;
     if (prefix.compare("/usr/lib/") == 0)
+        return false;
+    if (prefix.compare("/System/Library/") == 0)
         return false;
     if (isPrefixIgnored(prefix))
         return false;

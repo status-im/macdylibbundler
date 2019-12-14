@@ -2,6 +2,7 @@
 #define _settings_
 
 #include <string>
+#include <vector>
 
 namespace Settings {
 

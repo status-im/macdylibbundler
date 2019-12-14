@@ -5,16 +5,10 @@
 #include <vector>
 
 class Dependency {
-    // origin
-    std::string filename;
-    std::string prefix;
-    std::vector<std::string> symlinks;
-
-    // installation
-    std::string new_name;
 public:
     Dependency(std::string path);
 
+    // void initSearchPaths();
     void print();
 
     std::string getOriginalFileName() const { return filename; }
@@ -34,6 +28,22 @@ public:
     // Compares the given dependency with this one. If both refer to the same file,
     // it returns true and merges both entries into one.
     bool mergeIfSameAs(Dependency& dep2);
+
+private:
+    // origin
+    std::string filename;
+    std::string prefix;
+    std::vector<std::string> symlinks;
+
+    // installation
+    std::string new_name;
+
+    // the paths to search for dylibs, store it globally to parse the environment variables only once
+    // std::vector<std::string> paths;
+
+    // if some libs are missing prefixes, this will be set to true
+    // more stuff will then be necessary to do
+    // bool missing_prefixes;
 };
 
 #endif

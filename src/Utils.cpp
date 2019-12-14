@@ -1,43 +1,37 @@
 #include "Utils.h"
-#include "Dependency.h"
-#include "Settings.h"
-#include <cstdlib>
-#include <unistd.h>
-#include <iostream>
+
 #include <cstdio>
+#include <cstdlib>
+#include <iostream>
+
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-using namespace std;
+#include "Dependency.h"
+#include "Settings.h"
 
-void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
+void tokenize(const std::string& str, const char* delim, std::vector<std::string>* vectorarg)
 {
-    vector<string>& tokens = *vectorarg;
-
-    string delimiters(delim);
+    std::vector<std::string>& tokens = *vectorarg;
+    std::string delimiters(delim);
 
     // skip delimiters at beginning.
-    string::size_type lastPos = str.find_first_not_of(delimiters, 0);
-
+    std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
     // find first "non-delimiter".
-    string::size_type pos = str.find_first_of(delimiters, lastPos);
+    std::string::size_type pos = str.find_first_of(delimiters, lastPos);
 
-    while (string::npos != pos || string::npos != lastPos) {
+    while (pos != std::string::npos || lastPos != std::string::npos) {
         // found a token, add it to the vector.
         tokens.push_back(str.substr(lastPos, pos - lastPos));
-
         // skip delimiters.  Note the "not_of"
         lastPos = str.find_first_not_of(delimiters, pos);
-
         // find next "non-delimiter"
         pos = str.find_first_of(delimiters, lastPos);
     }
 }
 
-
-
-bool fileExists( std::string filename )
+bool fileExists(std::string filename)
 {
     if (access(filename.c_str(), F_OK) != -1) {
         return true; // file exists
@@ -46,34 +40,34 @@ bool fileExists( std::string filename )
         std::string delims = " \f\n\r\t\v";
         std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims) + 1);
         std::string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
-        if (access( ftrimmed.c_str(), F_OK ) != -1)
+        if (access(ftrimmed.c_str(), F_OK) != -1)
             return true;
         else
             return false; // file doesn't exist
     }
 }
 
-void copyFile(string from, string to)
+void copyFile(std::string from, std::string to)
 {
     bool overwrite = Settings::canOverwriteFiles();
     if (fileExists(to) && !overwrite) {
-        cerr << "\n\nError : File " << to.c_str() << " already exists. Remove it or enable overwriting." << endl;
+        std::cerr << "\n\nError : File " << to << " already exists. Remove it or enable overwriting." << std::endl;
         exit(1);
     }
 
-    string overwrite_permission = string(overwrite ? "-f " : "-n ");
+    std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
 
     // copy file to local directory
-    string command = string("cp ") + overwrite_permission + from + string(" ") + to;
+    std::string command = std::string("cp ") + overwrite_permission + from + std::string(" ") + to;
     if (from != to && systemp(command) != 0) {
-        cerr << "\n\nError : An error occured while trying to copy file " << from << " to " << to << endl;
+        std::cerr << "\n\nError : An error occured while trying to copy file " << from << " to " << to << std::endl;
         exit(1);
     }
 
     // give it write permission
-    string command2 = string("chmod +w ") + to;
+    std::string command2 = std::string("chmod +w ") + to;
     if (systemp(command2) != 0) {
-        cerr << "\n\nError : An error occured while trying to set write permissions on file " << to << endl;
+        std::cerr << "\n\nError : An error occured while trying to set write permissions on file " << to << std::endl;
         exit(1);
     }
 }
@@ -83,7 +77,6 @@ std::string system_get_output(std::string cmd)
     FILE* command_output;
     char output[128];
     int amount_read = 1;
-
     std::string full_output;
 
     try {
@@ -103,7 +96,7 @@ std::string system_get_output(std::string cmd)
         }
     }
     catch (...) {
-        std::cerr << "An error occured while executing command " << cmd.c_str() << std::endl;
+        std::cerr << "An error occured while executing command " << cmd << std::endl;
         pclose(command_output);
         return "";
     }
@@ -118,7 +111,7 @@ std::string system_get_output(std::string cmd)
 int systemp(std::string& cmd)
 {
     if (Settings::verboseOutput()) {
-        std::cout << "    " << cmd.c_str() << std::endl;
+        std::cout << "    " << cmd << std::endl;
     }
     return system(cmd.c_str());
 }
@@ -126,24 +119,23 @@ int systemp(std::string& cmd)
 std::string getUserInputDirForFile(const std::string& filename)
 {
     const int searchPathAmount = Settings::searchPathAmount();
-    for (int n=0; n<searchPathAmount; n++) {
+    for (int n=0; n<searchPathAmount; ++n) {
         auto searchPath = Settings::searchPath(n);
         if (!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
             searchPath += "/";
-
         if (!fileExists(searchPath+filename)) {
             continue;
         }
         else {
-            std::cerr << (searchPath+filename) << " was found.\n"
-                      << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: "
-                      << "Check the executable with 'otool -L'" << std::endl;
+            if (Settings::verboseOutput()) {
+                std::cerr << (searchPath+filename) << " was found.\n"
+                          << "/!\\ dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << std::endl;
+            }
             return searchPath;
         }
     }
 
-    while (true)
-    {
+    while (true) {
         std::cout << "Please specify the directory where this library is located (or enter 'quit' to abort): ";  fflush(stdout);
 
         std::string prefix;
@@ -161,9 +153,10 @@ std::string getUserInputDirForFile(const std::string& filename)
             continue;
         }
         else {
-            std::cerr << (prefix+filename) << " was found.\n"
-                      << "/!\\ DylibBundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: "
-                      << "Check the executable with 'otool -L'" << std::endl;
+            if (Settings::verboseOutput()) {
+                std::cerr << (prefix+filename) << " was found.\n"
+                          << "/!\\ dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << std::endl;
+            }
             return prefix;
         }
     }
