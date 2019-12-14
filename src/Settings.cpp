@@ -19,7 +19,7 @@ bool bundleLibs_bool = false;
 bool bundleLibs() { return bundleLibs_bool; }
 void bundleLibs(bool on) { bundleLibs_bool = on; }
 
-std::string dest_folder_str = "./libs/";
+std::string dest_folder_str = "./Frameworks/";
 std::string destFolder() { return dest_folder_str; }
 void destFolder(std::string path)
 {
