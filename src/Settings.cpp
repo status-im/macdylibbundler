@@ -72,7 +72,7 @@ bool isPrefixBundled(std::string prefix)
         return false;
     if (prefix.compare("/usr/lib/") == 0)
         return false;
-    if (prefix.compare("/System/Library/") == 0)
+    if (prefix.find("/System/Library/") == 0)
         return false;
     if (isPrefixIgnored(prefix))
         return false;

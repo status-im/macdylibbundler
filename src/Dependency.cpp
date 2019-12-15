@@ -84,7 +84,7 @@ Dependency::Dependency(std::string path)
         original_file = searchFilenameInRpaths(path);
     }
     else if (!realpath(rtrim(path).c_str(), original_file_buffer)) {
-        warning_msg = "\n/!\\ WARNING: Cannot resolve path '" + path + "'.\n";
+        warning_msg = "\n/!\\ WARNING: Cannot resolve path '" + path + "'\n";
         original_file = path;
     }
     else {
@@ -113,7 +113,7 @@ Dependency::Dependency(std::string path)
         // check if file is contained in one of the paths
         for (size_t i=0; i<paths.size(); ++i) {
             if (fileExists(paths[i]+filename)) {
-                warning_msg += "FOUND " + filename + " in " + paths[i] + ".\n";
+                warning_msg += "FOUND " + filename + " in " + paths[i] + "\n";
                 prefix = paths[i];
                 missing_prefixes = true;
                 break;
@@ -127,7 +127,7 @@ Dependency::Dependency(std::string path)
     // if the location is still unknown, ask the user for search path
     if (!Settings::isPrefixIgnored(prefix) && (prefix.empty() || !fileExists(prefix+filename))) {
         if (Settings::verboseOutput())
-            std::cerr << "\n/!\\ WARNING: Library " << filename << " has an incomplete name (location unknown).\n";
+            std::cerr << "\n/!\\ WARNING: Library " << filename << " has an incomplete name (location unknown)\n";
         missing_prefixes = true;
         paths.push_back(getUserInputDirForFile(filename));
     }
@@ -180,7 +180,7 @@ void Dependency::copyYourself()
     // fix the lib's inner name
     std::string command = std::string("install_name_tool -id ") + getInnerPath() + " " + getInstallPath();
     if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to change identity of library " << getInstallPath() << ".\n";
+        std::cerr << "\n\nError: An error occured while trying to change identity of library " << getInstallPath() << "\n";
         exit(1);
     }
 }
@@ -190,7 +190,7 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
     // for main lib file
     std::string command = std::string("install_name_tool -change ") + getOriginalPath() + " " + getInnerPath() + " " + file_to_fix;
     if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << ".\n";
+        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
         exit(1);
     }
 
@@ -199,7 +199,7 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
     for (int n=0; n<symamount; ++n) {
         command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
         if (systemp(command) != 0) {
-            std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << ".\n";
+            std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
             exit(1);
         }
     }
@@ -209,7 +209,7 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
         // for main lib file
         command = std::string("install_name_tool -change ") + filename + " " + getInnerPath() + " " + file_to_fix;
         if (systemp(command) != 0) {
-            std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << ".\n";
+            std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
             exit(1);
         }
 
@@ -217,7 +217,7 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
         for (int n=0; n<symamount; ++n) {
             command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
             if (systemp(command) != 0) {
-                std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << ".\n";
+                std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
                 exit(1);
             }
         }

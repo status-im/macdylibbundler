@@ -51,7 +51,7 @@ void copyFile(std::string from, std::string to)
 {
     bool overwrite = Settings::canOverwriteFiles();
     if (fileExists(to) && !overwrite) {
-        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting." << "\n";
+        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting\n";
         exit(1);
     }
 
@@ -128,7 +128,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         }
         else {
             if (Settings::verboseOutput()) {
-                std::cerr << (searchPath+filename) << " was found.\n"
+                std::cerr << (searchPath+filename) << " was found\n"
                           << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << "\n";
             }
             return searchPath;
@@ -152,11 +152,11 @@ std::string getUserInputDirForFile(const std::string& filename)
             prefix += "/";
 
         if (!fileExists(prefix+filename)) {
-            std::cerr << (prefix+filename) << " does not exist. Try again\n";
+            std::cerr << (prefix+filename) << " does not exist. Try again...\n";
             continue;
         }
         else {
-            std::cerr << (prefix+filename) << " was found.\n"
+            std::cerr << (prefix+filename) << " was found\n"
                       << "/!\\ WARNINGS: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
             return prefix;
         }

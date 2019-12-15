@@ -42,7 +42,7 @@ bool isRpath(const std::string& path)
 void collectRpaths(const std::string& filename)
 {
     if (!fileExists(filename)) {
-        std::cerr << "\n/!\\ WARNING: Can't collect rpaths for nonexistent file '" << filename << "'.\n";
+        std::cerr << "\n/!\\ WARNING: Can't collect rpaths for nonexistent file '" << filename << "'\n";
         return;
     }
 
@@ -62,7 +62,7 @@ void collectRpaths(const std::string& filename)
             size_t start_pos = line.find("path ");
             size_t end_pos = line.find(" (");
             if (start_pos == std::string::npos || end_pos == std::string::npos) {
-                std::cerr << "\n/!\\ WARNING: Unexpected LC_RPATH format.\n";
+                std::cerr << "\n/!\\ WARNING: Unexpected LC_RPATH format\n";
                 continue;
             }
             start_pos += 5;
@@ -102,10 +102,10 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
 
     if (fullpath.empty()) {
         if (Settings::verboseOutput())
-            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'.\n";
+            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
         fullpath = getUserInputDirForFile(suffix) + suffix;
         if (!Settings::verboseOutput() && fullpath.empty())
-            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'.\n";
+            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
         if (realpath(fullpath.c_str(), buffer))
             fullpath = buffer;
     }
@@ -127,7 +127,7 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
                 + Settings::inside_lib_path() + " "
                 + file_to_fix;
         if (systemp(command) != 0) {
-            std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix dependencies of " << file_to_fix << ".\n";
+            std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
             exit(1);
         }
     }
@@ -152,10 +152,6 @@ void addDependency(std::string path, std::string filename)
 {
     Dependency dep(path);
 
-    // check if this library is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(dep.getPrefix()))
-        return;
-
     // check if this library was already added to |deps| to avoid duplicates
     bool in_deps = false;
     const int dep_amount = deps.size();
@@ -163,16 +159,19 @@ void addDependency(std::string path, std::string filename)
         if (dep.mergeIfSameAs(deps[n]))
             in_deps = true;
 
-    if (!in_deps)
-        deps.push_back(dep);
-
-    std::vector<Dependency> deps_in_file = deps_per_file[filename];
-
     // check if this library was already added to |deps_per_file[filename]| to avoid duplicates
+    std::vector<Dependency> deps_in_file = deps_per_file[filename];
     bool in_deps_per_file = false;
     for (int n=0; n<deps_in_file.size(); n++)
         if (dep.mergeIfSameAs(deps_in_file[n]))
             in_deps_per_file = true;
+
+    // check if this library is in /usr/lib, /System/Library, or in ignored list
+    if (!Settings::isPrefixBundled(dep.getPrefix()))
+        return;
+
+    if (!in_deps)
+        deps.push_back(dep);
 
     if (!in_deps_per_file) {
         deps_in_file.push_back(dep);
@@ -189,7 +188,7 @@ void collectDependencies(std::string filename, std::vector<std::string>& lines)
     if (output.find("can't open file") != std::string::npos
             || output.find("No such file") != std::string::npos
             || output.size() < 1) {
-        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << filename << " to read its dependencies.\n";
+        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << filename << " to read its dependencies\n";
         exit(1);
     }
     // split output
@@ -272,7 +271,7 @@ void createDestDir()
         std::cout << "* Erasing old output directory " << dest_folder << "\n";
         std::string command = std::string("rm -r ") + dest_folder;
         if (systemp(command) != 0) {
-            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite dest folder.\n";
+            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite dest folder\n";
             exit(1);
         }
         dest_exists = false;
@@ -283,12 +282,12 @@ void createDestDir()
             std::cout << "* Creating output directory " << dest_folder << "\n";
             std::string command = std::string("mkdir -p ") + dest_folder;
             if (systemp(command) != 0) {
-                std::cerr << "\n\n/!\\ ERROR: An error occured while creating dest folder.\n";
+                std::cerr << "\n\n/!\\ ERROR: An error occured while creating dest folder\n";
                 exit(1);
             }
         }
         else {
-            std::cerr << "\n\n/!\\ ERROR: Dest folder does not exist. Create it or pass the appropriate flag for automatic dest dir creation.\n";
+            std::cerr << "\n\n/!\\ ERROR: Dest folder does not exist. Create it or pass the appropriate flag for automatic dest dir creation\n";
             exit(1);
         }
     }
