@@ -23,21 +23,21 @@ std::string installPath = "";
 void showHelp()
 {
     std::cout << "Usage: dylibbundler [options] -x file" << std::endl;
-
-    std::cout << "-x,  --fix-file              Object file to bundle dependencies (can enter more than one)" << std::endl;
-    std::cout << "-b,  --bundle-deps" << std::endl;
-    std::cout << "-f,  --bundle-frameworks" << std::endl;
-    std::cout << "-d,  --dest-dir              Directory (relative) to copy bundled libraries (default: ../Frameworks/)" << std::endl;
-    std::cout << "-p,  --install-path          Inner path (@rpath) of bundled libraries (default: '@executable_path/../Frameworks/')" << std::endl;
-    std::cout << "-s,  --search-path           Directory to add to list of locations searched" << std::endl;
-    std::cout << "-of, --overwrite-files       Allow overwriting files in output directory" << std::endl;
-    std::cout << "-od, --overwrite-dir         Overwrite output directory if it exists (implies --create-dir)" << std::endl;
-    std::cout << "-cd, --create-dir            Create output directory if needed" << std::endl;
-    std::cout << "-i,  --ignore                Ignore libraries in this directory (default: /usr/lib & /System/Library)" << std::endl;
-    std::cout << "-q,  --quiet                 Less verbose output" << std::endl;
-    std::cout << "-v,  --verbose               More verbose output (useful for debugging)" << std::endl;
-    std::cout << "-V,  --version" << std::endl;
-    std::cout << "-h,  --help" << std::endl;
+    std::cout << "Options:" << std::endl;
+    std::cout << "  -x,  --fix-file              Object file to bundle dependencies (can enter more than one)" << std::endl;
+    std::cout << "  -b,  --bundle-deps           Copy dependencies to app bundle and fix internal names and rpaths" << std::endl;
+    std::cout << "  -f,  --bundle-frameworks     Copy dependencies that are frameworks (experimental)" << std::endl;
+    std::cout << "  -d,  --dest-dir              Directory (relative) to copy bundled libraries (default: ../Frameworks/)" << std::endl;
+    std::cout << "  -p,  --install-path          Inner path (@rpath) of bundled libraries (default: @executable_path/../Frameworks/)" << std::endl;
+    std::cout << "  -s,  --search-path           Directory to add to list of locations searched" << std::endl;
+    std::cout << "  -of, --overwrite-files       Allow overwriting files in output directory" << std::endl;
+    std::cout << "  -od, --overwrite-dir         Overwrite output directory if it exists (implies --create-dir)" << std::endl;
+    std::cout << "  -cd, --create-dir            Create output directory if needed" << std::endl;
+    std::cout << "  -i,  --ignore                Ignore libraries in this directory (default: /usr/lib & /System/Library)" << std::endl;
+    std::cout << "  -q,  --quiet                 Less verbose output" << std::endl;
+    std::cout << "  -v,  --verbose               More verbose output" << std::endl;
+    std::cout << "  -V,  --version               Print dylibbundler version number and exit" << std::endl;
+    std::cout << "  -h,  --help                  Print this message and exit" << std::endl;
 }
 
 int main (int argc, char * const argv[])
