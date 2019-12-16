@@ -17,27 +17,27 @@
  FIXME - no memory management is done at all (anyway the program closes immediately so who cares?)
  */
 
-const std::string VERSION = "git";
+const std::string VERSION = "1.0.0 (2019-12-16)";
 std::string installPath = "";
 
 void showHelp()
 {
-    std::cout << "dylibbundler " << VERSION << std::endl;
-    std::cout << "dylibbundler is a utility that helps bundle dynamic libraries inside macOS app bundles.\n" << std::endl;
+    std::cout << "Usage: dylibbundler [options] -x file" << std::endl;
 
-    std::cout << "-x, --fix-file <file to fix (executable or app plug-in)>" << std::endl;
-    std::cout << "-b, --bundle-deps" << std::endl;
-    std::cout << "-f, --bundle-frameworks" << std::endl;
-    std::cout << "-d, --dest-dir <directory to send bundled libraries (relative to current directory)>" << std::endl;
-    std::cout << "-p, --install-path <'inner' path (@rpath) of bundled libraries (usually relative to executable, by default '@executable_path/../Frameworks/')>" << std::endl;
-    std::cout << "-s, --search-path <directory to add to list of locations searched>" << std::endl;
-    std::cout << "-of, --overwrite-files (allow overwriting files in output directory)" << std::endl;
-    std::cout << "-od, --overwrite-dir (overwrite output directory if it exists. implies --create-dir)" << std::endl;
-    std::cout << "-cd, --create-dir (creates output directory if necessary)" << std::endl;
-    std::cout << "-i, --ignore <location to ignore> (will ignore libraries in this directory)" << std::endl;
-    std::cout << "-q, --quiet (print only summary information)" << std::endl;
-    std::cout << "-v, --verbose (print extra information, useful for debugging)" << std::endl;
-    std::cout << "-h, --help" << std::endl;
+    std::cout << "-x,  --fix-file              Object file to bundle dependencies (can enter more than one)" << std::endl;
+    std::cout << "-b,  --bundle-deps" << std::endl;
+    std::cout << "-f,  --bundle-frameworks" << std::endl;
+    std::cout << "-d,  --dest-dir              Directory (relative) to copy bundled libraries (default: ../Frameworks/)" << std::endl;
+    std::cout << "-p,  --install-path          Inner path (@rpath) of bundled libraries (default: '@executable_path/../Frameworks/')" << std::endl;
+    std::cout << "-s,  --search-path           Directory to add to list of locations searched" << std::endl;
+    std::cout << "-of, --overwrite-files       Allow overwriting files in output directory" << std::endl;
+    std::cout << "-od, --overwrite-dir         Overwrite output directory if it exists (implies --create-dir)" << std::endl;
+    std::cout << "-cd, --create-dir            Create output directory if needed" << std::endl;
+    std::cout << "-i,  --ignore                Ignore libraries in this directory (default: /usr/lib & /System/Library)" << std::endl;
+    std::cout << "-q,  --quiet                 Less verbose output" << std::endl;
+    std::cout << "-v,  --verbose               More verbose output (useful for debugging)" << std::endl;
+    std::cout << "-V,  --version" << std::endl;
+    std::cout << "-h,  --help" << std::endl;
 }
 
 int main (int argc, char * const argv[])
@@ -89,7 +89,7 @@ int main (int argc, char * const argv[])
             showHelp();
             exit(0);
         }
-        if (strcmp(argv[i],"-s") == 0 || strcmp(argv[i],"--search-path") == 0) {
+        else if (strcmp(argv[i],"-s") == 0 || strcmp(argv[i],"--search-path") == 0) {
             i++;
             Settings::addSearchPath(argv[i]);
             continue;
@@ -101,6 +101,10 @@ int main (int argc, char * const argv[])
         else if (strcmp(argv[i],"-v") == 0 || strcmp(argv[i],"--verbose") == 0) {
             Settings::verboseOutput(true);
             continue;
+        }
+        else if (strcmp(argv[i],"-V") == 0 || strcmp(argv[i],"--version") == 0) {
+            std::cout << "dylibbundler " << VERSION << std::endl;
+            exit(0);
         }
         else if (i > 0) {
             // unknown flag, abort
