@@ -38,7 +38,7 @@ bool fileExists(std::string filename)
     }
     else {
         std::string delims = " \f\n\r\t\v";
-        std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims) + 1);
+        std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims)+1);
         std::string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
         if (access(ftrimmed.c_str(), F_OK) != -1)
             return true;
@@ -137,13 +137,11 @@ std::string getUserInputDirForFile(const std::string& filename)
 
     while (true) {
         std::cout << "\nPlease specify the directory where this library is located (or enter 'quit' to abort): ";
-        // fflush(stdout);
+        fflush(stdout);
 
         std::string prefix;
         std::cin >> prefix;
-        // std::cout << std::endl;
-
-        // getline(std::cin, prefix);
+        std::cout << std::endl;
 
         if (prefix.compare("quit") == 0)
             exit(1);
