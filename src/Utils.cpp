@@ -58,14 +58,14 @@ void copyFile(std::string from, std::string to)
     std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
 
     // copy file to local directory
-    std::string command = std::string("cp ") + overwrite_permission + from + std::string(" ") + to;
+    std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" ") + to;
     if (from != to && systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << "\n";
         exit(1);
     }
 
     // give it write permission
-    std::string command2 = std::string("chmod +w ") + to;
+    std::string command2 = std::string("chmod -R +w ") + to;
     if (systemp(command2) != 0) {
         std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << "\n";
         exit(1);
@@ -110,7 +110,7 @@ std::string system_get_output(std::string cmd)
 
 int systemp(std::string& cmd)
 {
-    if (Settings::verboseOutput()) {
+    if (!Settings::quietOutput()) {
         std::cout << "    " << cmd << "\n";
     }
     return system(cmd.c_str());
@@ -127,7 +127,7 @@ std::string getUserInputDirForFile(const std::string& filename)
             continue;
         }
         else {
-            if (Settings::verboseOutput()) {
+            if (!Settings::quietOutput()) {
                 std::cerr << (searchPath+filename) << " was found\n"
                           << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << "\n";
             }
@@ -136,6 +136,8 @@ std::string getUserInputDirForFile(const std::string& filename)
     }
 
     while (true) {
+        if (Settings::quietOutput())
+            std::cerr << "\n/!\\ WARNING: Library " << filename << " has an incomplete name (location unknown)\n";
         std::cout << "\nPlease specify the directory where this library is located (or enter 'quit' to abort): ";
         fflush(stdout);
 

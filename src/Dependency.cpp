@@ -10,8 +10,12 @@
 #include <sstream>
 #include <vector>
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "DylibBundler.h"
 #include "Settings.h"
@@ -20,6 +24,16 @@
 static inline std::string stripPrefix(std::string in)
 {
     return in.substr(in.rfind("/")+1);
+}
+
+static inline std::string getFrameworkRoot(std::string in)
+{
+    return in.substr(0, in.find(".framework")+10);
+}
+
+static inline std::string getFrameworkPath(std::string in)
+{
+    return in.substr(in.rfind(".framework/")+11);
 }
 
 // trim from end (in place)
@@ -102,9 +116,23 @@ Dependency::Dependency(std::string path)
         prefix = path.substr(0, path.rfind("/")+1);
     }
 
+    // check if this dependency is in /usr/lib, /System/Library, or in ignored list
+    if (!Settings::isPrefixBundled(prefix))
+        return;
+
+    if (path.find(".framework") != std::string::npos) {
+        original_file = path;
+        std::string framework_root = getFrameworkRoot(original_file);
+        std::string framework_path = getFrameworkPath(original_file);
+        std::string framework_name = stripPrefix(framework_root);
+        filename = framework_name + "/" + framework_path;
+        prefix = framework_root.substr(0, framework_root.rfind("/")+1);
+    }
+
     // check if the lib is in a known location
     if (!prefix.empty() && prefix[prefix.size()-1] != '/')
         prefix += "/";
+
     if (prefix.empty() || !fileExists(prefix+filename)) {
         // the paths contains at least /usr/lib so if it is empty we have not initialized it
         if (paths.empty())
@@ -121,13 +149,17 @@ Dependency::Dependency(std::string path)
         }
     }
 
-    if (Settings::verboseOutput())
+    if (!Settings::quietOutput())
         std::cout << warning_msg;
 
     // if the location is still unknown, ask the user for search path
     if (!Settings::isPrefixIgnored(prefix) && (prefix.empty() || !fileExists(prefix+filename))) {
-        if (Settings::verboseOutput())
+        if (!Settings::quietOutput())
             std::cerr << "\n/!\\ WARNING: Library " << filename << " has an incomplete name (location unknown)\n";
+        if (Settings::verboseOutput()) {
+            std::cout << "path: " << (prefix+filename) << std::endl;
+            std::cout << "prefix: " << prefix << std::endl;
+        }
         missing_prefixes = true;
         paths.push_back(getUserInputDirForFile(filename));
     }
@@ -151,7 +183,7 @@ std::string Dependency::getInstallPath()
 
 std::string Dependency::getInnerPath()
 {
-    return Settings::inside_lib_path() + new_name;
+    return Settings::insideLibPath() + new_name;
 }
 
 void Dependency::addSymlink(std::string s)
@@ -175,12 +207,41 @@ bool Dependency::mergeIfSameAs(Dependency& dep2)
 
 void Dependency::copyYourself()
 {
-    copyFile(getOriginalPath(), getInstallPath());
+    std::string original_path = getOriginalPath();
+    std::string dest_path = getInstallPath();
+    std::string inner_path = getInnerPath();
+    std::string install_path = dest_path;
+
+    if (Settings::verboseOutput())
+        std::cout << "original path: " << original_path << std::endl;
+
+    if (original_path.find(".framework") != std::string::npos) {
+        std::string framework_root = getFrameworkRoot(original_path);
+        std::string framework_path = getFrameworkPath(original_path);
+        std::string framework_name = stripPrefix(framework_root);
+        if (Settings::verboseOutput()) {
+            std::cout << "framework root: " << framework_root << std::endl;
+            std::cout << "framework path: " << framework_path << std::endl;
+            std::cout << "framework name: " << framework_name << std::endl;
+        }
+        original_path = framework_root;
+        dest_path = Settings::destFolder() + framework_name;
+        inner_path = Settings::insideLibPath() + framework_name + "/" + framework_path;
+        install_path = dest_path + "/" + framework_path;
+    }
+
+    if (Settings::verboseOutput()) {
+        std::cout << "inner path:   " << inner_path << std::endl;
+        std::cout << "dest_path:    " << dest_path << std::endl;
+        std::cout << "install path: " << install_path << std::endl;
+    }
+
+    copyFile(original_path, dest_path);
 
     // fix the lib's inner name
-    std::string command = std::string("install_name_tool -id ") + getInnerPath() + " " + getInstallPath();
+    std::string command = std::string("install_name_tool -id ") + inner_path + " " + install_path;
     if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to change identity of library " << getInstallPath() << "\n";
+        std::cerr << "\n\nError: An error occured while trying to change identity of library " << install_path << "\n";
         exit(1);
     }
 }

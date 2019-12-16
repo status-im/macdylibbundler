@@ -19,7 +19,7 @@ public:
     void addSymlink(std::string s);
     int getSymlinkAmount() const { return symlinks.size(); }
 
-    std::string getSymlink(const int i) const { return symlinks[i]; }
+    std::string getSymlink(int i) const { return symlinks[i]; }
     std::string getPrefix() const { return prefix; }
 
     void copyYourself();

@@ -25,7 +25,7 @@ void changeLibPathsOnFile(std::string file_to_fix)
     if (deps_collected.find(file_to_fix) == deps_collected.end())
         collectDependencies(file_to_fix);
 
-    std::cout << "\n* Fixing dependencies on " << file_to_fix << "\n";
+    std::cout << "* Fixing dependencies on " << file_to_fix << "\n";
 
     std::vector<Dependency> deps_in_file = deps_per_file[file_to_fix];
     const int dep_amount = deps_in_file.size();
@@ -35,8 +35,7 @@ void changeLibPathsOnFile(std::string file_to_fix)
 
 bool isRpath(const std::string& path)
 {
-    size_t result = path.find("@rpath");
-    return (result == 0);
+    return path.find("@rpath") == 0 || path.find("@loader_path") == 0;
 }
 
 void collectRpaths(const std::string& filename)
@@ -65,8 +64,12 @@ void collectRpaths(const std::string& filename)
                 std::cerr << "\n/!\\ WARNING: Unexpected LC_RPATH format\n";
                 continue;
             }
-            start_pos += 5;
+            start_pos += 5; // to exclude "path "
             std::string rpath = line.substr(start_pos, end_pos - start_pos);
+            if (Settings::verboseOutput()) {
+                std::cout << "rpath line: " << line << std::endl;
+                std::cout << "inserting rpath: " << rpath << std::endl;
+            }
             rpaths.insert(rpath);
             rpaths_per_file[filename].push_back(rpath);
             read_rpath = false;
@@ -90,7 +93,7 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
 {
     char buffer[PATH_MAX];
     std::string fullpath;
-    std::string suffix = rpath_file.substr(7, rpath_file.size()-6);
+    std::string suffix = rpath_file.substr(rpath_file.rfind("/")+1);
 
     for (std::set<std::string>::iterator it = rpaths.begin(); it != rpaths.end(); ++it) {
         std::string path = *it + "/" + suffix;
@@ -100,11 +103,17 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
         }
     }
 
+    if (Settings::verboseOutput()) {
+        std::cout << "rpath file: " << rpath_file << std::endl;
+        std::cout << "suffix: " << suffix << std::endl;
+        std::cout << "rpath fullpath: " << fullpath << std::endl;
+    }
+
     if (fullpath.empty()) {
-        if (Settings::verboseOutput())
+        if (!Settings::quietOutput())
             std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
         fullpath = getUserInputDirForFile(suffix) + suffix;
-        if (!Settings::verboseOutput() && fullpath.empty())
+        if (Settings::quietOutput() && fullpath.empty())
             std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
         if (realpath(fullpath.c_str(), buffer))
             fullpath = buffer;
@@ -124,28 +133,13 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
         std::string command =
             std::string("install_name_tool -rpath ")
                 + rpaths_to_fix[i] + " "
-                + Settings::inside_lib_path() + " "
+                + Settings::insideLibPath() + " "
                 + file_to_fix;
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
             exit(1);
         }
     }
-}
-
-void addDependency(std::string path)
-{
-    Dependency dep(path);
-    // we need to check if this library was already added to avoid duplicates
-    const int dep_amount = deps.size();
-    for (int n=0; n<dep_amount; n++)
-        if (dep.mergeIfSameAs(deps[n]))
-            return;
-
-    if (!Settings::isPrefixBundled(dep.getPrefix()))
-        return;
-
-    deps.push_back(dep);
 }
 
 void addDependency(std::string path, std::string filename)
@@ -203,11 +197,11 @@ void collectDependencies(std::string filename)
 
     const int line_amount = lines.size();
     for (int n=0; n<line_amount; n++) {
-        // only lines beginning with a tab interest us
+        if (!Settings::bundleFrameworks())
+            if (lines[n].find(".framework") != std::string::npos)
+                continue;
+        // lines containing path begin with a tab
         if (lines[n][0] != '\t')
-            continue;
-        // ignore frameworks, we cannot handle them
-        if (lines[n].find(".framework") != std::string::npos)
             continue;
         // trim useless info, keep only library path
         std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
@@ -228,6 +222,8 @@ void collectSubDependencies()
 
         for (int n=0; n<dep_amount; n++) {
             std::string original_path = deps[n].getOriginalPath();
+            if (Settings::verboseOutput())
+                std::cout << "original path: " << original_path << std::endl;
             if (isRpath(original_path))
                 original_path = searchFilenameInRpaths(original_path);
 
@@ -238,11 +234,11 @@ void collectSubDependencies()
 
             const int line_amount = lines.size();
             for (int n=0; n<line_amount; n++) {
-                // only lines beginning with a tab interest us
+                if (!Settings::bundleFrameworks())
+                    if (lines[n].find(".framework") != std::string::npos)
+                        continue;
+                // lines containing path begin with a tab
                 if (lines[n][0] != '\t')
-                    continue;
-                // ignore frameworks, we cannot handle them
-                if (lines[n].find(".framework") != std::string::npos)
                     continue;
                 // trim useless info, keep only library name
                 std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
@@ -280,10 +276,10 @@ void createDestDir()
 
     if (!dest_exists) {
         if (Settings::canCreateDir()) {
-            std::cout << "* Creating output directory " << dest_folder << "\n";
+            std::cout << "* Creating output directory " << dest_folder << "\n\n";
             std::string command = std::string("mkdir -p ") + dest_folder;
             if (systemp(command) != 0) {
-                std::cerr << "\n\n/!\\ ERROR: An error occured while creating dest folder\n";
+                std::cerr << "\n/!\\ ERROR: An error occured while creating dest folder\n";
                 exit(1);
             }
         }

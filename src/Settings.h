@@ -8,7 +8,7 @@ namespace Settings {
 
 bool isPrefixBundled(std::string prefix);
 bool isPrefixIgnored(std::string prefix);
-void ignore_prefix(std::string prefix);
+void ignorePrefix(std::string prefix);
 
 bool canOverwriteFiles();
 void canOverwriteFiles(bool permission);
@@ -22,20 +22,26 @@ void canCreateDir(bool permission);
 bool bundleLibs();
 void bundleLibs(bool on);
 
+bool bundleFrameworks();
+void bundleFrameworks(bool status);
+
 std::string destFolder();
 void destFolder(std::string path);
 
 void addFileToFix(std::string path);
 int fileToFixAmount();
-std::string fileToFix(const int n);
+std::string fileToFix(int n);
 std::vector<std::string> filesToFix();
 
-std::string inside_lib_path();
-void inside_lib_path(std::string p);
+std::string insideLibPath();
+void insideLibPath(std::string p);
 
 void addSearchPath(std::string path);
 int searchPathAmount();
-std::string searchPath(const int n);
+std::string searchPath(int n);
+
+bool quietOutput();
+void quietOutput(bool status);
 
 bool verboseOutput();
 void verboseOutput(bool status);

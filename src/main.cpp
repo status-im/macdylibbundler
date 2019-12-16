@@ -27,6 +27,7 @@ void showHelp()
 
     std::cout << "-x, --fix-file <file to fix (executable or app plug-in)>" << std::endl;
     std::cout << "-b, --bundle-deps" << std::endl;
+    std::cout << "-f, --bundle-frameworks" << std::endl;
     std::cout << "-d, --dest-dir <directory to send bundled libraries (relative to current directory)>" << std::endl;
     std::cout << "-p, --install-path <'inner' path (@rpath) of bundled libraries (usually relative to executable, by default '@executable_path/../Frameworks/')>" << std::endl;
     std::cout << "-s, --search-path <directory to add to list of locations searched>" << std::endl;
@@ -35,6 +36,7 @@ void showHelp()
     std::cout << "-cd, --create-dir (creates output directory if necessary)" << std::endl;
     std::cout << "-i, --ignore <location to ignore> (will ignore libraries in this directory)" << std::endl;
     std::cout << "-q, --quiet (print only summary information)" << std::endl;
+    std::cout << "-v, --verbose (print extra information, useful for debugging)" << std::endl;
     std::cout << "-h, --help" << std::endl;
 }
 
@@ -51,14 +53,18 @@ int main (int argc, char * const argv[])
             Settings::bundleLibs(true);
             continue;
         }
+        else if (strcmp(argv[i],"-f") == 0 || strcmp(argv[i],"--bundle-frameworks") == 0) {
+            Settings::bundleFrameworks(true);
+            continue;
+        }
         else if (strcmp(argv[i],"-p") == 0 || strcmp(argv[i],"--install-path") == 0) {
             i++;
-            Settings::inside_lib_path(argv[i]);
+            Settings::insideLibPath(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-i") == 0 || strcmp(argv[i],"--ignore") == 0) {
             i++;
-            Settings::ignore_prefix(argv[i]);
+            Settings::ignorePrefix(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-d") == 0 || strcmp(argv[i],"--dest-dir") == 0) {
@@ -89,7 +95,11 @@ int main (int argc, char * const argv[])
             continue;
         }
         else if (strcmp(argv[i],"-q") == 0 || strcmp(argv[i],"--quiet") == 0) {
-            Settings::verboseOutput(false);
+            Settings::quietOutput(true);
+            continue;
+        }
+        else if (strcmp(argv[i],"-v") == 0 || strcmp(argv[i],"--verbose") == 0) {
+            Settings::verboseOutput(true);
             continue;
         }
         else if (i > 0) {
