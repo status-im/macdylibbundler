@@ -3,7 +3,7 @@ PREFIX=/usr/local
 CXX=clang++
 LD=$(shell xcrun -f clang++)
 CXXFLAGS=-c -pipe -stdlib=libc++ -O2 -std=c++17 -arch x86_64 -mmacosx-version-min=10.13
-LDFLAGS=-stdlib=libc++ -std=c++17 -Wl,-dead_strip -Wl,-headerpad_max_install_names -arch x86_64 -mmacosx-version-min=10.13
+LDFLAGS=-stdlib=libc++ -std=c++17 -Wl,-dead_strip -arch x86_64 -mmacosx-version-min=10.13
 LDLIBS=
 
 all: dylibbundler
