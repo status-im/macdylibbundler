@@ -211,11 +211,13 @@ void Dependency::copyYourself()
     std::string dest_path = getInstallPath();
     std::string inner_path = getInnerPath();
     std::string install_path = dest_path;
+    bool framework = false;
 
     if (Settings::verboseOutput())
         std::cout << "original path: " << original_path << std::endl;
 
     if (original_path.find(".framework") != std::string::npos) {
+        framework = true;
         std::string framework_root = getFrameworkRoot(original_path);
         std::string framework_path = getFrameworkPath(original_path);
         std::string framework_name = stripPrefix(framework_root);
@@ -237,6 +239,21 @@ void Dependency::copyYourself()
     }
 
     copyFile(original_path, dest_path);
+
+    if (framework) {
+        std::string headers_path = dest_path + std::string("/Headers");
+        std::string headers_realpath = headers_path;
+        char buffer[PATH_MAX];
+
+        if (realpath(rtrim(headers_path).c_str(), buffer))
+            headers_realpath = buffer;
+
+        if (Settings::verboseOutput())
+            std::cout << "headers path: " << headers_realpath << std::endl;
+
+        deleteFile(headers_path, true);
+        deleteFile(headers_realpath, true);
+    }
 
     // fix the lib's inner name
     std::string command = std::string("install_name_tool -id ") + inner_path + " " + install_path;

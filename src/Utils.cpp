@@ -72,7 +72,23 @@ void copyFile(std::string from, std::string to)
     }
 }
 
-std::string system_get_output(std::string cmd)
+void deleteFile(std::string path, bool overwrite)
+{
+    std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
+    std::string command = std::string("rm -r ") + overwrite_permission + path;
+    if (systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to delete " << path << "\n";
+        exit(1);
+    }
+}
+
+void deleteFile(std::string path)
+{
+    bool overwrite = Settings::canOverwriteFiles();
+    deleteFile(path, overwrite);
+}
+
+std::string systemOutput(const std::string& cmd)
 {
     FILE* command_output;
     char output[128];
@@ -108,7 +124,7 @@ std::string system_get_output(std::string cmd)
     return full_output;
 }
 
-int systemp(std::string& cmd)
+int systemp(const std::string& cmd)
 {
     if (!Settings::quietOutput()) {
         std::cout << "    " << cmd << "\n";

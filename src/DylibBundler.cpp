@@ -46,7 +46,7 @@ void collectRpaths(const std::string& filename)
     }
 
     std::string cmd = "otool -l " + filename;
-    std::string output = system_get_output(cmd);
+    std::string output = systemOutput(cmd);
 
     std::vector<std::string> lc_lines;
     tokenize(output, "\n", &lc_lines);
@@ -177,7 +177,7 @@ void addDependency(std::string path, std::string filename)
 void collectDependencies(std::string filename, std::vector<std::string>& lines)
 {
     std::string cmd = "otool -L " + filename;
-    std::string output = system_get_output(cmd);
+    std::string output = systemOutput(cmd);
 
     if (output.find("can't open file") != std::string::npos
             || output.find("No such file") != std::string::npos
