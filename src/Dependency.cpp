@@ -21,41 +21,6 @@
 #include "Settings.h"
 #include "Utils.h"
 
-static inline std::string filePrefix(std::string in)
-{
-    return in.substr(0, in.rfind("/")+1);
-}
-
-static inline std::string stripPrefix(std::string in)
-{
-    return in.substr(in.rfind("/")+1);
-}
-
-static inline std::string getFrameworkRoot(std::string in)
-{
-    return in.substr(0, in.find(".framework")+10);
-}
-
-static inline std::string getFrameworkPath(std::string in)
-{
-    return in.substr(in.rfind(".framework/")+11);
-}
-
-// trim from end (in place)
-static inline void rtrim_in_place(std::string& s)
-{
-    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) {
-        return !std::isspace(c);
-    }).base(), s.end());
-}
-
-// trim from end (copying)
-static inline std::string rtrim(std::string s)
-{
-    rtrim_in_place(s);
-    return s;
-}
-
 // the paths to search for dylibs, store it globally to parse the environment variables only once
 std::vector<std::string> paths;
 
@@ -93,7 +58,7 @@ void initSearchPaths()
 // if some libs are missing prefixes, then more stuff will be necessary to do
 bool missing_prefixes = false;
 
-Dependency::Dependency(std::string path)
+Dependency::Dependency(std::string path) : is_framework(false)
 {
     char original_file_buffer[PATH_MAX];
     std::string original_file;
@@ -125,7 +90,8 @@ Dependency::Dependency(std::string path)
     if (!Settings::isPrefixBundled(prefix))
         return;
 
-    if (path.find(".framework") != std::string::npos) {
+    if (getOriginalPath().find(".framework") != std::string::npos) {
+        is_framework = true;
         original_file = path;
         std::string framework_root = getFrameworkRoot(original_file);
         std::string framework_path = getFrameworkPath(original_file);
@@ -172,14 +138,6 @@ Dependency::Dependency(std::string path)
     new_name = filename;
 }
 
-void Dependency::print()
-{
-    std::cout << "\n * " << filename << " from " << prefix << "\n";
-
-    for (size_t n=0; n<symlinks.size(); ++n)
-        std::cout << "     symlink --> " << symlinks[n] << "\n";;
-}
-
 std::string Dependency::getInstallPath()
 {
     return Settings::destFolder() + new_name;
@@ -208,19 +166,25 @@ bool Dependency::mergeIfSameAs(Dependency& dep2)
     return false;
 }
 
+void Dependency::print()
+{
+    std::cout << "\n * " << filename << " from " << prefix << "\n";
+
+    for (size_t n=0; n<symlinks.size(); ++n)
+        std::cout << "     symlink --> " << symlinks[n] << "\n";;
+}
+
 void Dependency::copyYourself()
 {
     std::string original_path = getOriginalPath();
     std::string dest_path = getInstallPath();
     std::string inner_path = getInnerPath();
     std::string install_path = dest_path;
-    bool framework = false;
 
     if (Settings::verboseOutput())
         std::cout << "original path: " << original_path << std::endl;
 
-    if (original_path.find(".framework") != std::string::npos) {
-        framework = true;
+    if (is_framework) {
         std::string framework_root = getFrameworkRoot(original_path);
         std::string framework_path = getFrameworkPath(original_path);
         std::string framework_name = stripPrefix(framework_root);
@@ -243,7 +207,7 @@ void Dependency::copyYourself()
 
     copyFile(original_path, dest_path);
 
-    if (framework) {
+    if (is_framework) {
         std::string headers_path = dest_path + std::string("/Headers");
         std::string headers_realpath = headers_path;
         char buffer[PATH_MAX];

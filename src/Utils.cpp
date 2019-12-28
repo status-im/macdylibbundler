@@ -11,81 +11,39 @@
 #include "Dependency.h"
 #include "Settings.h"
 
-void tokenize(const std::string& str, const char* delim, std::vector<std::string>* vectorarg)
+std::string filePrefix(std::string in)
 {
-    std::vector<std::string>& tokens = *vectorarg;
-    std::string delimiters(delim);
-
-    // skip delimiters at beginning.
-    std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
-    // find first "non-delimiter".
-    std::string::size_type pos = str.find_first_of(delimiters, lastPos);
-
-    while (pos != std::string::npos || lastPos != std::string::npos) {
-        // found a token, add it to the vector.
-        tokens.push_back(str.substr(lastPos, pos - lastPos));
-        // skip delimiters.  Note the "not_of"
-        lastPos = str.find_first_not_of(delimiters, pos);
-        // find next "non-delimiter"
-        pos = str.find_first_of(delimiters, lastPos);
-    }
+    return in.substr(0, in.rfind("/")+1);
 }
 
-bool fileExists(std::string filename)
+std::string stripPrefix(std::string in)
 {
-    if (access(filename.c_str(), F_OK) != -1) {
-        return true; // file exists
-    }
-    else {
-        std::string delims = " \f\n\r\t\v";
-        std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims)+1);
-        std::string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
-        if (access(ftrimmed.c_str(), F_OK) != -1)
-            return true;
-        else
-            return false; // file doesn't exist
-    }
+    return in.substr(in.rfind("/")+1);
 }
 
-void copyFile(std::string from, std::string to)
+std::string getFrameworkRoot(std::string in)
 {
-    bool overwrite = Settings::canOverwriteFiles();
-    if (fileExists(to) && !overwrite) {
-        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting\n";
-        exit(1);
-    }
-
-    std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
-
-    // copy file to local directory
-    std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" ") + to;
-    if (from != to && systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << "\n";
-        exit(1);
-    }
-
-    // give it write permission
-    std::string command2 = std::string("chmod -R +w ") + to;
-    if (systemp(command2) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << "\n";
-        exit(1);
-    }
+    return in.substr(0, in.find(".framework")+10);
 }
 
-void deleteFile(std::string path, bool overwrite)
+std::string getFrameworkPath(std::string in)
 {
-    std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
-    std::string command = std::string("rm -r ") + overwrite_permission + path;
-    if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to delete " << path << "\n";
-        exit(1);
-    }
+    return in.substr(in.rfind(".framework/")+11);
 }
 
-void deleteFile(std::string path)
+// trim from end (in place)
+void rtrim_in_place(std::string& s)
 {
-    bool overwrite = Settings::canOverwriteFiles();
-    deleteFile(path, overwrite);
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) {
+        return !std::isspace(c);
+    }).base(), s.end());
+}
+
+// trim from end (copying)
+std::string rtrim(std::string s)
+{
+    rtrim_in_place(s);
+    return s;
 }
 
 std::string systemOutput(const std::string& cmd)
@@ -130,6 +88,121 @@ int systemp(const std::string& cmd)
         std::cout << "    " << cmd << "\n";
     }
     return system(cmd.c_str());
+}
+
+void tokenize(const std::string& str, const char* delim, std::vector<std::string>* vectorarg)
+{
+    std::vector<std::string>& tokens = *vectorarg;
+    std::string delimiters(delim);
+
+    // skip delimiters at beginning.
+    std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
+    // find first "non-delimiter".
+    std::string::size_type pos = str.find_first_of(delimiters, lastPos);
+
+    while (pos != std::string::npos || lastPos != std::string::npos) {
+        // found a token, add it to the vector.
+        tokens.push_back(str.substr(lastPos, pos - lastPos));
+        // skip delimiters.  Note the "not_of"
+        lastPos = str.find_first_not_of(delimiters, pos);
+        // find next "non-delimiter"
+        pos = str.find_first_of(delimiters, lastPos);
+    }
+}
+
+bool fileExists(std::string filename)
+{
+    if (access(filename.c_str(), F_OK) != -1) {
+        return true; // file exists
+    }
+    else {
+        std::string delims = " \f\n\r\t\v";
+        std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims)+1);
+        std::string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
+        if (access(ftrimmed.c_str(), F_OK) != -1)
+            return true;
+        else
+            return false; // file doesn't exist
+    }
+}
+
+bool isRpath(const std::string& path)
+{
+    return path.find("@rpath") == 0 || path.find("@loader_path") == 0;
+}
+
+void copyFile(std::string from, std::string to)
+{
+    bool overwrite = Settings::canOverwriteFiles();
+    if (fileExists(to) && !overwrite) {
+        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting\n";
+        exit(1);
+    }
+
+    std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
+
+    // copy file to local directory
+    std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" ") + to;
+    if (from != to && systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << "\n";
+        exit(1);
+    }
+
+    // give it write permission
+    std::string command2 = std::string("chmod -R +w ") + to;
+    if (systemp(command2) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << "\n";
+        exit(1);
+    }
+}
+
+void deleteFile(std::string path, bool overwrite)
+{
+    std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
+    std::string command = std::string("rm -r ") + overwrite_permission + path;
+    if (systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to delete " << path << "\n";
+        exit(1);
+    }
+}
+
+void deleteFile(std::string path)
+{
+    bool overwrite = Settings::canOverwriteFiles();
+    deleteFile(path, overwrite);
+}
+
+void createDestDir()
+{
+    std::string dest_folder = Settings::destFolder();
+    std::cout << "* Checking output directory " << dest_folder << "\n";
+
+    bool dest_exists = fileExists(dest_folder);
+
+    if (dest_exists && Settings::canOverwriteDir()) {
+        std::cout << "* Erasing old output directory " << dest_folder << "\n";
+        std::string command = std::string("rm -r ") + dest_folder;
+        if (systemp(command) != 0) {
+            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite dest folder\n";
+            exit(1);
+        }
+        dest_exists = false;
+    }
+
+    if (!dest_exists) {
+        if (Settings::canCreateDir()) {
+            std::cout << "* Creating output directory " << dest_folder << "\n\n";
+            std::string command = std::string("mkdir -p ") + dest_folder;
+            if (systemp(command) != 0) {
+                std::cerr << "\n/!\\ ERROR: An error occured while creating dest folder\n";
+                exit(1);
+            }
+        }
+        else {
+            std::cerr << "\n\n/!\\ ERROR: Dest folder does not exist. Create it or pass the appropriate flag for automatic dest dir creation\n";
+            exit(1);
+        }
+    }
 }
 
 std::string getUserInputDirForFile(const std::string& filename)

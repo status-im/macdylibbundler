@@ -34,11 +34,6 @@ void changeLibPathsOnFile(std::string file_to_fix)
         deps_in_file[n].fixFileThatDependsOnMe(file_to_fix);
 }
 
-bool isRpath(const std::string& path)
-{
-    return path.find("@rpath") == 0 || path.find("@loader_path") == 0;
-}
-
 void collectRpaths(const std::string& filename)
 {
     if (!fileExists(filename)) {
@@ -163,6 +158,9 @@ void addDependency(std::string path, std::string filename)
     if (!Settings::isPrefixBundled(dep.getPrefix()))
         return;
 
+    if (dep.isFramework())
+        frameworks.insert(dep.getOriginalFileName());
+
     if (!in_deps)
         deps.push_back(dep);
 
@@ -250,40 +248,6 @@ void collectSubDependencies()
         if (deps.size() == deps_size)
             break;
     }
-}
-
-void createDestDir()
-{
-    std::string dest_folder = Settings::destFolder();
-    std::cout << "* Checking output directory " << dest_folder << "\n";
-
-    bool dest_exists = fileExists(dest_folder);
-
-    if (dest_exists && Settings::canOverwriteDir()) {
-        std::cout << "* Erasing old output directory " << dest_folder << "\n";
-        std::string command = std::string("rm -r ") + dest_folder;
-        if (systemp(command) != 0) {
-            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite dest folder\n";
-            exit(1);
-        }
-        dest_exists = false;
-    }
-
-    if (!dest_exists) {
-        if (Settings::canCreateDir()) {
-            std::cout << "* Creating output directory " << dest_folder << "\n\n";
-            std::string command = std::string("mkdir -p ") + dest_folder;
-            if (systemp(command) != 0) {
-                std::cerr << "\n/!\\ ERROR: An error occured while creating dest folder\n";
-                exit(1);
-            }
-        }
-        else {
-            std::cerr << "\n\n/!\\ ERROR: Dest folder does not exist. Create it or pass the appropriate flag for automatic dest dir creation\n";
-            exit(1);
-        }
-    }
-
 }
 
 void doneWithDeps_go()
