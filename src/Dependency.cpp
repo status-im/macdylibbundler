@@ -21,6 +21,11 @@
 #include "Settings.h"
 #include "Utils.h"
 
+static inline std::string filePrefix(std::string in)
+{
+    return in.substr(0, in.rfind("/")+1);
+}
+
 static inline std::string stripPrefix(std::string in)
 {
     return in.substr(in.rfind("/")+1);
@@ -108,12 +113,12 @@ Dependency::Dependency(std::string path)
     // check if given path is a symlink
     if (original_file != rtrim(path)) {
         filename = stripPrefix(original_file);
-        prefix = original_file.substr(0, original_file.rfind("/")+1);
+        prefix = filePrefix(original_file);
         addSymlink(path);
     }
     else {
         filename = stripPrefix(path);
-        prefix = path.substr(0, path.rfind("/")+1);
+        prefix = filePrefix(path);
     }
 
     // check if this dependency is in /usr/lib, /System/Library, or in ignored list
@@ -126,7 +131,7 @@ Dependency::Dependency(std::string path)
         std::string framework_path = getFrameworkPath(original_file);
         std::string framework_name = stripPrefix(framework_root);
         filename = framework_name + "/" + framework_path;
-        prefix = framework_root.substr(0, framework_root.rfind("/")+1);
+        prefix = filePrefix(framework_root);
     }
 
     // check if the lib is in a known location
