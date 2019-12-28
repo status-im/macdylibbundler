@@ -115,15 +115,15 @@ int main (int argc, char * const argv[])
         }
     }
 
-    if (!Settings::bundleLibs() && Settings::fileToFixAmount() < 1) {
+    if (!Settings::bundleLibs() && Settings::filesToFixCount() < 1) {
         showHelp();
         exit(0);
     }
 
     std::cout << "* Collecting dependencies...\n";
 
-    const int amount = Settings::fileToFixAmount();
-    for (int n=0; n<amount; n++)
+    const size_t count = Settings::filesToFixCount();
+    for (size_t n=0; n<count; ++n)
         collectDependencies(Settings::fileToFix(n));
 
     collectSubDependencies();

@@ -38,9 +38,9 @@ void destFolder(std::string path)
 
 std::vector<std::string> files;
 void addFileToFix(std::string path) { files.push_back(path); }
-int fileToFixAmount() { return files.size(); }
 std::string fileToFix(const int n) { return files[n]; }
 std::vector<std::string> filesToFix() { return files; }
+size_t filesToFixCount() { return files.size(); }
 
 std::string insideLibPath() { return inside_path_str; }
 void insideLibPath(std::string p)
@@ -61,8 +61,7 @@ void ignorePrefix(std::string prefix)
 
 bool isPrefixIgnored(std::string prefix)
 {
-    const int prefix_amount = prefixes_to_ignore.size();
-    for (int n=0; n<prefix_amount; n++) {
+    for (size_t n=0; n<prefixes_to_ignore.size(); n++) {
         if (prefix.compare(prefixes_to_ignore[n]) == 0)
             return true;
     }
@@ -88,7 +87,7 @@ bool isPrefixBundled(std::string prefix)
 
 std::vector<std::string> searchPaths;
 void addSearchPath(std::string path) { searchPaths.push_back(path); }
-int searchPathAmount() { return searchPaths.size(); }
+int searchPathCount() { return searchPaths.size(); }
 std::string searchPath(const int n) { return searchPaths[n]; }
 
 bool quietOutput() { return quiet_output; }

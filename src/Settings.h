@@ -29,15 +29,15 @@ std::string destFolder();
 void destFolder(std::string path);
 
 void addFileToFix(std::string path);
-int fileToFixAmount();
 std::string fileToFix(int n);
 std::vector<std::string> filesToFix();
+size_t filesToFixCount();
 
 std::string insideLibPath();
 void insideLibPath(std::string p);
 
 void addSearchPath(std::string path);
-int searchPathAmount();
+int searchPathCount();
 std::string searchPath(int n);
 
 bool quietOutput();

@@ -176,8 +176,7 @@ void Dependency::print()
 {
     std::cout << "\n * " << filename << " from " << prefix << "\n";
 
-    const int symamount = symlinks.size();
-    for (int n=0; n<symamount; ++n)
+    for (size_t n=0; n<symlinks.size(); ++n)
         std::cout << "     symlink --> " << symlinks[n] << "\n";;
 }
 
@@ -202,9 +201,8 @@ void Dependency::addSymlink(std::string s)
 bool Dependency::mergeIfSameAs(Dependency& dep2)
 {
     if (dep2.getOriginalFileName().compare(filename) == 0) {
-        const int samount = getSymlinkAmount();
-        for (int n=0; n<samount; ++n)
-            dep2.addSymlink(getSymlink(n));
+        for (size_t n=0; n<symlinks.size(); ++n)
+            dep2.addSymlink(symlinks[n]);
         return true;
     }
     return false;
@@ -278,8 +276,7 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
     }
 
     // for symlinks
-    const int symamount = symlinks.size();
-    for (int n=0; n<symamount; ++n) {
+    for (size_t n=0; n<symlinks.size(); ++n) {
         command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
         if (systemp(command) != 0) {
             std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
@@ -297,7 +294,7 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
         }
 
         // for symlinks
-        for (int n=0; n<symamount; ++n) {
+        for (size_t n=0; n<symlinks.size(); ++n) {
             command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
             if (systemp(command) != 0) {
                 std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";

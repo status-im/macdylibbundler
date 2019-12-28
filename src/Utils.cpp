@@ -134,8 +134,8 @@ int systemp(const std::string& cmd)
 
 std::string getUserInputDirForFile(const std::string& filename)
 {
-    const int searchPathAmount = Settings::searchPathAmount();
-    for (int n=0; n<searchPathAmount; ++n) {
+    const size_t searchPathCount = Settings::searchPathCount();
+    for (size_t n=0; n<searchPathCount; ++n) {
         auto searchPath = Settings::searchPath(n);
         if (!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
             searchPath += "/";

@@ -16,9 +16,10 @@
 
 std::vector<Dependency> deps;
 std::map<std::string, std::vector<Dependency>> deps_per_file;
+std::map<std::string, bool> deps_collected;
+std::set<std::string> frameworks;
 std::set<std::string> rpaths;
 std::map<std::string, std::vector<std::string>> rpaths_per_file;
-std::map<std::string, bool> deps_collected;
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
@@ -29,7 +30,7 @@ void changeLibPathsOnFile(std::string file_to_fix)
 
     std::vector<Dependency> deps_in_file = deps_per_file[file_to_fix];
     const int dep_amount = deps_in_file.size();
-    for (int n=0; n<dep_amount; ++n)
+    for (size_t n=0; n<dep_amount; ++n)
         deps_in_file[n].fixFileThatDependsOnMe(file_to_fix);
 }
 
@@ -148,16 +149,14 @@ void addDependency(std::string path, std::string filename)
 
     // check if this library was already added to |deps| to avoid duplicates
     bool in_deps = false;
-    const int dep_amount = deps.size();
-    for (int n=0; n<dep_amount; n++)
+    for (size_t n=0; n<deps.size(); ++n)
         if (dep.mergeIfSameAs(deps[n]))
             in_deps = true;
 
     // check if this library was already added to |deps_per_file[filename]| to avoid duplicates
-    std::vector<Dependency> deps_in_file = deps_per_file[filename];
     bool in_deps_per_file = false;
-    for (int n=0; n<deps_in_file.size(); n++)
-        if (dep.mergeIfSameAs(deps_in_file[n]))
+    for (size_t n=0; n<deps_per_file[filename].size(); ++n)
+        if (dep.mergeIfSameAs(deps_per_file[filename][n]))
             in_deps_per_file = true;
 
     // check if this library is in /usr/lib, /System/Library, or in ignored list
@@ -167,10 +166,8 @@ void addDependency(std::string path, std::string filename)
     if (!in_deps)
         deps.push_back(dep);
 
-    if (!in_deps_per_file) {
-        deps_in_file.push_back(dep);
-        deps_per_file[filename] = deps_in_file;
-    }
+    if (!in_deps_per_file)
+        deps_per_file[filename].push_back(dep);
 }
 
 // Fill |lines| with dependencies of given |filename|
@@ -195,8 +192,7 @@ void collectDependencies(std::string filename)
     std::vector<std::string> lines;
     collectDependencies(filename, lines);
 
-    const int line_amount = lines.size();
-    for (int n=0; n<line_amount; n++) {
+    for (size_t n=0; n<lines.size(); n++) {
         if (!Settings::bundleFrameworks())
             if (lines[n].find(".framework") != std::string::npos)
                 continue;
@@ -214,13 +210,13 @@ void collectDependencies(std::string filename)
 
 void collectSubDependencies()
 {
-    int dep_amount = deps.size();
+    size_t deps_size = deps.size();
 
     // recursively collect each dependency's dependencies
     while (true) {
-        dep_amount = deps.size();
+        deps_size = deps.size();
 
-        for (int n=0; n<dep_amount; n++) {
+        for (size_t n=0; n<deps_size; n++) {
             std::string original_path = deps[n].getOriginalPath();
             if (Settings::verboseOutput())
                 std::cout << "original path: " << original_path << std::endl;
@@ -232,8 +228,7 @@ void collectSubDependencies()
             std::vector<std::string> lines;
             collectDependencies(original_path, lines);
 
-            const int line_amount = lines.size();
-            for (int n=0; n<line_amount; n++) {
+            for (size_t n=0; n<lines.size(); ++n) {
                 if (!Settings::bundleFrameworks())
                     if (lines[n].find(".framework") != std::string::npos)
                         continue;
@@ -252,7 +247,7 @@ void collectSubDependencies()
             }
         }
         // if no more dependencies were added on this iteration, stop searching
-        if (deps.size() == dep_amount)
+        if (deps.size() == deps_size)
             break;
     }
 }
@@ -293,10 +288,10 @@ void createDestDir()
 
 void doneWithDeps_go()
 {
-    const int dep_amount = deps.size();
+    const size_t deps_size = deps.size();
 
     std::cout << "\n";
-    for (int n=0; n<dep_amount; n++)
+    for (size_t n=0; n<deps_size; ++n)
         deps[n].print();
     std::cout << "\n";
 
@@ -304,15 +299,15 @@ void doneWithDeps_go()
     if (Settings::bundleLibs()) {
         createDestDir();
 
-        for (int i=0; i<dep_amount; ++i) {
+        for (size_t i=0; i<deps_size; ++i) {
             deps[i].copyYourself();
             changeLibPathsOnFile(deps[i].getInstallPath());
             fixRpathsOnFile(deps[i].getOriginalPath(), deps[i].getInstallPath());
         }
     }
 
-    const int fileToFixAmount = Settings::fileToFixAmount();
-    for (int n=0; n<fileToFixAmount; n++) {
+    const size_t filesToFixSize = Settings::filesToFix().size();
+    for (size_t n=0; n<filesToFixSize; ++n) {
         changeLibPathsOnFile(Settings::fileToFix(n));
         fixRpathsOnFile(Settings::fileToFix(n), Settings::fileToFix(n));
     }

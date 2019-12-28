@@ -17,7 +17,7 @@ public:
     std::string getInnerPath();
 
     void addSymlink(std::string s);
-    int getSymlinkAmount() const { return symlinks.size(); }
+    size_t symlinksCount() const { return symlinks.size(); }
 
     std::string getSymlink(int i) const { return symlinks[i]; }
     std::string getPrefix() const { return prefix; }
@@ -37,13 +37,6 @@ private:
 
     // installation
     std::string new_name;
-
-    // the paths to search for dylibs, store it globally to parse the environment variables only once
-    // std::vector<std::string> paths;
-
-    // if some libs are missing prefixes, this will be set to true
-    // more stuff will then be necessary to do
-    // bool missing_prefixes;
 };
 
 #endif
