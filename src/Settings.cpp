@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "Utils.h"
 
 namespace Settings {
 
@@ -10,7 +11,7 @@ bool verbose_output = false;
 bool bundleLibs_bool = false;
 bool bundle_frameworks = false;
 
-std::string dest_folder_str = "./Frameworks/";
+std::string dest_folder_str = "Frameworks";
 std::string inside_path_str = "@executable_path/../Frameworks/";
 
 bool canOverwriteFiles() { return overwrite_files; }
@@ -27,13 +28,37 @@ void bundleLibs(bool on) { bundleLibs_bool = on; }
 bool bundleFrameworks() { return bundle_frameworks; }
 void bundleFrameworks(bool status) { bundle_frameworks = status; }
 
-std::string destFolder() { return dest_folder_str; }
+std::string app_bundle;
+std::string dest_folder;
+std::string appBundle() { return app_bundle; }
+void appBundle(std::string path) {
+    app_bundle = path;
+    // fix path if needed so it ends with '/'
+    if (app_bundle[app_bundle.size()-1] != '/')
+        app_bundle += "/";
+
+    std::string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' " + app_bundle + "Contents/Info.plist";
+    std::string bundle_executable = systemOutput(cmd);
+
+    addFileToFix(app_bundle + "Contents/MacOS/" + bundle_executable);
+
+    // fix path if needed so it ends with '/'
+    if (dest_folder_str[dest_folder_str.size()-1] != '/')
+        dest_folder_str += "/";
+    dest_folder = app_bundle + "Contents/" + dest_folder_str;
+}
+
+std::string destFolder() { return dest_folder; }
 void destFolder(std::string path)
 {
     dest_folder_str = path;
     // fix path if needed so it ends with '/'
     if (dest_folder_str[dest_folder_str.size()-1] != '/')
         dest_folder_str += "/";
+    dest_folder = dest_folder_str;
+    if (!app_bundle.empty()) {
+        dest_folder = app_bundle + "Contents/" + dest_folder_str;
+    }
 }
 
 std::vector<std::string> files;

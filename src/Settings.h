@@ -25,6 +25,9 @@ void bundleLibs(bool on);
 bool bundleFrameworks();
 void bundleFrameworks(bool status);
 
+std::string appBundle();
+void appBundle(std::string path);
+
 std::string destFolder();
 void destFolder(std::string path);
 

@@ -262,7 +262,6 @@ void doneWithDeps_go()
     // copy files if requested by user
     if (Settings::bundleLibs()) {
         createDestDir();
-
         for (size_t i=0; i<deps_size; ++i) {
             deps[i].copyYourself();
             changeLibPathsOnFile(deps[i].getInstallPath());

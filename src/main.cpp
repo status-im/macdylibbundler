@@ -24,11 +24,12 @@ void showHelp()
 {
     std::cout << "Usage: dylibbundler [options] -x file" << std::endl;
     std::cout << "Options:" << std::endl;
-    std::cout << "  -x,  --fix-file              Object file to bundle dependencies (can enter more than one)" << std::endl;
+    std::cout << "  -a,  --app                   Application bundle to make self-contained" << std::endl;
+    std::cout << "  -x,  --fix-file              Object file(s) to bundle dependencies (optional)" << std::endl;
     std::cout << "  -b,  --bundle-deps           Copy dependencies to app bundle and fix internal names and rpaths" << std::endl;
     std::cout << "  -f,  --bundle-frameworks     Copy dependencies that are frameworks (experimental)" << std::endl;
-    std::cout << "  -d,  --dest-dir              Directory (relative) to copy bundled libraries (default: ../Frameworks/)" << std::endl;
-    std::cout << "  -p,  --install-path          Inner path (@rpath) of bundled libraries (default: @executable_path/../Frameworks/)" << std::endl;
+    std::cout << "  -d,  --dest-dir              Directory to copy dependencies, relative to <app>/Contents (default: ./Frameworks)" << std::endl;
+    std::cout << "  -p,  --install-path          Inner path (@rpath) of bundled dependencies (default: @executable_path/../Frameworks/)" << std::endl;
     std::cout << "  -s,  --search-path           Directory to add to list of locations searched" << std::endl;
     std::cout << "  -of, --overwrite-files       Allow overwriting files in output directory" << std::endl;
     std::cout << "  -od, --overwrite-dir         Overwrite output directory if it exists (implies --create-dir)" << std::endl;
@@ -44,7 +45,12 @@ int main (int argc, char * const argv[])
 {
     // parse arguments
     for (int i=0; i<argc; i++) {
-        if (strcmp(argv[i],"-x") == 0 || strcmp(argv[i],"--fix-file") == 0) {
+        if (strcmp(argv[i],"-a") == 0 || strcmp(argv[i],"--app") == 0) {
+            i++;
+            Settings::appBundle(argv[i]);
+            continue;
+        }
+        else if (strcmp(argv[i],"-x") == 0 || strcmp(argv[i],"--fix-file") == 0) {
             i++;
             Settings::addFileToFix(argv[i]);
             continue;
