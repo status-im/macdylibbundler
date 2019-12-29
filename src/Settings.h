@@ -10,26 +10,14 @@ bool isPrefixBundled(std::string prefix);
 bool isPrefixIgnored(std::string prefix);
 void ignorePrefix(std::string prefix);
 
-bool canOverwriteFiles();
-void canOverwriteFiles(bool permission);
-
-bool canOverwriteDir();
-void canOverwriteDir(bool permission);
-
-bool canCreateDir();
-void canCreateDir(bool permission);
-
-bool bundleLibs();
-void bundleLibs(bool on);
-
-bool bundleFrameworks();
-void bundleFrameworks(bool status);
-
 std::string appBundle();
 void appBundle(std::string path);
 
 std::string destFolder();
 void destFolder(std::string path);
+
+std::string pluginsFolder();
+std::string resourcesFolder();
 
 void addFileToFix(std::string path);
 std::string fileToFix(int n);
@@ -40,8 +28,23 @@ std::string insideLibPath();
 void insideLibPath(std::string p);
 
 void addSearchPath(std::string path);
-int searchPathCount();
+size_t searchPathCount();
 std::string searchPath(int n);
+
+bool canCreateDir();
+void canCreateDir(bool permission);
+
+bool canOverwriteDir();
+void canOverwriteDir(bool permission);
+
+bool canOverwriteFiles();
+void canOverwriteFiles(bool permission);
+
+bool bundleLibs();
+void bundleLibs(bool status);
+
+bool bundleFrameworks();
+void bundleFrameworks(bool status);
 
 bool quietOutput();
 void quietOutput(bool status);

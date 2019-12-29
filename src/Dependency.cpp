@@ -27,6 +27,7 @@ std::vector<std::string> paths;
 // initialize the dylib search paths
 void initSearchPaths()
 {
+    std::cout << "**** RUNNING initSearchPaths() ****\n";
     // check the same paths the system would search for dylibs
     std::string searchPaths;
     char *dyldLibPath = std::getenv("DYLD_LIBRARY_PATH");
@@ -67,12 +68,12 @@ Dependency::Dependency(std::string path) : is_framework(false)
     if (isRpath(path)) {
         original_file = searchFilenameInRpaths(path);
     }
-    else if (!realpath(rtrim(path).c_str(), original_file_buffer)) {
-        warning_msg = "\n/!\\ WARNING: Cannot resolve path '" + path + "'\n";
-        original_file = path;
+    else if (realpath(rtrim(path).c_str(), original_file_buffer)) {
+        original_file = original_file_buffer;
     }
     else {
-        original_file = original_file_buffer;
+        warning_msg = "\n/!\\ WARNING: Cannot resolve path '" + path + "'\n";
+        original_file = path;
     }
 
     // check if given path is a symlink
@@ -92,12 +93,16 @@ Dependency::Dependency(std::string path) : is_framework(false)
 
     if (getOriginalPath().find(".framework") != std::string::npos) {
         is_framework = true;
-        original_file = path;
         std::string framework_root = getFrameworkRoot(original_file);
         std::string framework_path = getFrameworkPath(original_file);
         std::string framework_name = stripPrefix(framework_root);
         filename = framework_name + "/" + framework_path;
         prefix = filePrefix(framework_root);
+        if (Settings::verboseOutput()) {
+            std::cout << "framework root: " << framework_root << std::endl;
+            std::cout << "framework path: " << framework_path << std::endl;
+            std::cout << "framework name: " << framework_name << std::endl;
+        }
     }
 
     // check if the lib is in a known location
@@ -179,30 +184,18 @@ void Dependency::copyYourself()
     std::string original_path = getOriginalPath();
     std::string dest_path = getInstallPath();
     std::string inner_path = getInnerPath();
-    std::string install_path = dest_path;
-
-    if (Settings::verboseOutput())
-        std::cout << "original path: " << original_path << std::endl;
+    std::string install_path = getInstallPath();
 
     if (is_framework) {
-        std::string framework_root = getFrameworkRoot(original_path);
-        std::string framework_path = getFrameworkPath(original_path);
-        std::string framework_name = stripPrefix(framework_root);
-        if (Settings::verboseOutput()) {
-            std::cout << "framework root: " << framework_root << std::endl;
-            std::cout << "framework path: " << framework_path << std::endl;
-            std::cout << "framework name: " << framework_name << std::endl;
-        }
-        original_path = framework_root;
-        dest_path = Settings::destFolder() + framework_name;
-        inner_path = Settings::insideLibPath() + framework_name + "/" + framework_path;
-        install_path = dest_path + "/" + framework_path;
+        original_path = getFrameworkRoot(original_path);
+        dest_path = Settings::destFolder() + stripPrefix(original_path);
     }
 
     if (Settings::verboseOutput()) {
-        std::cout << "inner path:   " << inner_path << std::endl;
-        std::cout << "dest_path:    " << dest_path << std::endl;
-        std::cout << "install path: " << install_path << std::endl;
+        std::cout << "original path: " << original_path << std::endl;
+        std::cout << "inner path:    " << inner_path << std::endl;
+        std::cout << "dest_path:     " << dest_path << std::endl;
+        std::cout << "install path:  " << install_path << std::endl;
     }
 
     copyFile(original_path, dest_path);
@@ -216,54 +209,30 @@ void Dependency::copyYourself()
             headers_realpath = buffer;
 
         if (Settings::verboseOutput())
-            std::cout << "headers path: " << headers_realpath << std::endl;
+            std::cout << "headers path:  " << headers_realpath << std::endl;
 
         deleteFile(headers_path, true);
         deleteFile(headers_realpath, true);
     }
 
     // fix the lib's inner name
-    std::string command = std::string("install_name_tool -id ") + inner_path + " " + install_path;
-    if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to change identity of library " << install_path << "\n";
-        exit(1);
-    }
+    changeId(install_path, inner_path);
 }
 
 void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
 {
     // for main lib file
-    std::string command = std::string("install_name_tool -change ") + getOriginalPath() + " " + getInnerPath() + " " + file_to_fix;
-    if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
-        exit(1);
-    }
-
+    changeInstallName(file_to_fix, getOriginalPath(), getInnerPath());
     // for symlinks
-    for (size_t n=0; n<symlinks.size(); ++n) {
-        command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
-        if (systemp(command) != 0) {
-            std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
-            exit(1);
-        }
-    }
+    for (size_t n=0; n<symlinks.size(); ++n)
+        changeInstallName(file_to_fix, symlinks[n], getInnerPath());
 
     // FIXME - hackish
     if (missing_prefixes) {
         // for main lib file
-        command = std::string("install_name_tool -change ") + filename + " " + getInnerPath() + " " + file_to_fix;
-        if (systemp(command) != 0) {
-            std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
-            exit(1);
-        }
-
+        changeInstallName(file_to_fix, filename, getInnerPath());
         // for symlinks
-        for (size_t n=0; n<symlinks.size(); ++n) {
-            command = std::string("install_name_tool -change ") + symlinks[n] + " " + getInnerPath() + " " + file_to_fix;
-            if (systemp(command) != 0) {
-                std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
-                exit(1);
-            }
-        }
+        for (size_t n=0; n<symlinks.size(); ++n)
+            changeInstallName(file_to_fix, symlinks[n], getInnerPath());
     }
 }

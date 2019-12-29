@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <numeric>
@@ -28,10 +29,9 @@ void changeLibPathsOnFile(std::string file_to_fix)
 
     std::cout << "* Fixing dependencies on " << file_to_fix << "\n";
 
-    std::vector<Dependency> deps_in_file = deps_per_file[file_to_fix];
-    const int dep_amount = deps_in_file.size();
+    const int dep_amount = deps_per_file[file_to_fix].size();
     for (size_t n=0; n<dep_amount; ++n)
-        deps_in_file[n].fixFileThatDependsOnMe(file_to_fix);
+        deps_per_file[file_to_fix][n].fixFileThatDependsOnMe(file_to_fix);
 }
 
 void collectRpaths(const std::string& filename)
@@ -138,6 +138,121 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
     }
 }
 
+void createQtConf(std::string directory)
+{
+    std::string contents = "[Paths]\n"
+                           "Plugins = PlugIns\n"
+                           "Imports = Resources/qml\n"
+                           "Qml2Imports = Resources/qml\n";
+    if (directory[directory.size()-1] != '/')
+        directory += "/";
+    std::string out_path = directory + "qt.conf";
+    std::ofstream out(out_path);
+    out << contents;
+    out.close();
+}
+
+void copyQtPlugins()
+{
+    bool qtCoreFound = false;
+    bool qtNetworkFound = false;
+    bool qtSqlFound = false;
+    bool qtSvgFound = false;
+    bool qtMultimediaFound = false;
+    bool qt3dRenderFound = false;
+    bool qt3dQuickRenderFound = false;
+    bool qtPositioningFound = false;
+    bool qtLocationFound = false;
+    std::string original_file;
+    for (std::set<std::string>::iterator it = frameworks.begin(); it != frameworks.end(); ++it) {
+        std::string framework = *it;
+        if (framework.find("QtCore") != std::string::npos) {
+            qtCoreFound = true;
+            original_file = framework;
+        }
+        if (framework.find("QtNetwork") != std::string::npos)
+            qtNetworkFound = true;
+        if (framework.find("QtSql") != std::string::npos)
+            qtSqlFound = true;
+        if (framework.find("QtSvg") != std::string::npos)
+            qtSvgFound = true;
+        if (framework.find("QtMultimedia") != std::string::npos)
+            qtMultimediaFound = true;
+        if (framework.find("Qt3DRender") != std::string::npos)
+            qt3dRenderFound = true;
+        if (framework.find("Qt3DQuickRender") != std::string::npos)
+            qt3dQuickRenderFound = true;
+        if (framework.find("QtPositioning") != std::string::npos)
+            qtPositioningFound = true;
+        if (framework.find("QtLocation") != std::string::npos)
+            qtLocationFound = true;
+    }
+
+    if (!qtCoreFound)
+        return;
+
+    createQtConf(Settings::resourcesFolder());
+
+    std::string framework_root = getFrameworkRoot(original_file);
+    std::string prefix = filePrefix(framework_root);
+    std::string qt_prefix = filePrefix(prefix.substr(0, prefix.size()-1));
+    std::string qt_plugins_prefix = qt_prefix + "plugins/";
+    std::string dest = Settings::pluginsFolder();
+
+    auto fixupPlugin = [original_file,dest](std::string plugin) {
+        std::string framework_root = getFrameworkRoot(original_file);
+        std::string prefix = filePrefix(framework_root);
+        std::string qt_prefix = filePrefix(prefix.substr(0, prefix.size()-1));
+        std::string qt_plugins_prefix = qt_prefix + "plugins/";
+        mkdir(dest + plugin);
+        copyFile(qt_plugins_prefix + plugin, dest);
+        std::vector<std::string> files = lsDir(dest + plugin+"/");
+        for (const auto& file : files) {
+            Settings::addFileToFix(dest + plugin+"/"+file);
+            collectDependencies(dest + plugin+"/"+file);
+            changeId(dest + plugin+"/"+file, "@rpath/" + plugin+"/"+file);
+        }
+    };
+
+    mkdir(dest + "platforms");
+    copyFile(qt_plugins_prefix + "platforms/libqcocoa.dylib", dest + "platforms");
+    Settings::addFileToFix(dest + "platforms/libqcocoa.dylib");
+    collectDependencies(dest + "platforms/libqcocoa.dylib");
+
+    fixupPlugin("printsupport");
+    fixupPlugin("styles");
+    fixupPlugin("imageformats");
+    if (!qtSvgFound)
+        systemp("rm -f " + dest + "imageformats/libqsvg.dylib");
+    if (qtNetworkFound)
+        fixupPlugin("bearer");
+    if (qtSqlFound)
+        fixupPlugin("sqldrivers");
+    if (qtMultimediaFound) {
+        fixupPlugin("mediaservice");
+        fixupPlugin("audio");
+    }
+    if (qt3dRenderFound) {
+        fixupPlugin("sceneparsers");
+        fixupPlugin("geometryloaders");
+    }
+    if (qt3dQuickRenderFound)
+        fixupPlugin("renderplugins");
+    if (qtPositioningFound)
+        fixupPlugin("position");
+    if (qtLocationFound)
+        fixupPlugin("geoservices");
+
+    std::cout << "(post qt) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    std::cout << "(post qt) # OF DEPS: " << deps.size() << std::endl;
+
+    // TODO: evaluate deps of Qt plugins to see if this can be skipped
+    collectSubDependencies();
+
+    std::cout << "(post qt, post sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    std::cout << "(post qt, post sub) # OF DEPS: " << deps.size() << std::endl;
+}
+
 void addDependency(std::string path, std::string filename)
 {
     Dependency dep(path);
@@ -158,8 +273,8 @@ void addDependency(std::string path, std::string filename)
     if (!Settings::isPrefixBundled(dep.getPrefix()))
         return;
 
-    if (dep.isFramework())
-        frameworks.insert(dep.getOriginalFileName());
+    if (!in_deps && dep.isFramework())
+        frameworks.insert(dep.getOriginalPath());
 
     if (!in_deps)
         deps.push_back(dep);
@@ -209,7 +324,8 @@ void collectDependencies(std::string filename)
 void collectSubDependencies()
 {
     size_t deps_size = deps.size();
-
+    std::cout << "(pre sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    std::cout << "(pre sub) # OF DEPS: " << deps.size() << std::endl;
     // recursively collect each dependency's dependencies
     while (true) {
         deps_size = deps.size();
@@ -248,6 +364,8 @@ void collectSubDependencies()
         if (deps.size() == deps_size)
             break;
     }
+    std::cout << "(post sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    std::cout << "(post sub) # OF DEPS: " << deps.size() << std::endl;
 }
 
 void doneWithDeps_go()

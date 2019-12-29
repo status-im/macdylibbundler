@@ -110,6 +110,15 @@ void tokenize(const std::string& str, const char* delim, std::vector<std::string
     }
 }
 
+std::vector<std::string> lsDir(std::string path)
+{
+    std::string cmd = "ls " + path;
+    std::string output = systemOutput(cmd);
+    std::vector<std::string> files;
+    tokenize(output, "\n", &files);
+    return files;
+}
+
 bool fileExists(std::string filename)
 {
     if (access(filename.c_str(), F_OK) != -1) {
@@ -131,11 +140,29 @@ bool isRpath(const std::string& path)
     return path.find("@rpath") == 0 || path.find("@loader_path") == 0;
 }
 
+void changeId(std::string binary_file, std::string new_id)
+{
+    std::string command = std::string("install_name_tool -id ") + new_id + " " + binary_file;
+    if (systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << "\n";
+        exit(1);
+    }
+}
+
+void changeInstallName(std::string binary_file, std::string old_name, std::string new_name)
+{
+    std::string command = std::string("install_name_tool -change ") + old_name + " " + new_name + " " + binary_file;
+    if (systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << "\n";
+        exit(1);
+    }
+}
+
 void copyFile(std::string from, std::string to)
 {
     bool overwrite = Settings::canOverwriteFiles();
     if (fileExists(to) && !overwrite) {
-        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting\n";
+        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting (-of)\n";
         exit(1);
     }
 
@@ -172,6 +199,18 @@ void deleteFile(std::string path)
     deleteFile(path, overwrite);
 }
 
+bool mkdir(std::string path)
+{
+    if (Settings::verboseOutput())
+        std::cout << "* Creating directory " << path << "\n\n";
+    std::string command = std::string("mkdir -p ") + path;
+    if (systemp(command) != 0) {
+        std::cerr << "\n/!\\ ERROR: An error occured while creating " + path + "\n";
+        return false;
+    }
+    return true;
+}
+
 void createDestDir()
 {
     std::string dest_folder = Settings::destFolder();
@@ -192,9 +231,8 @@ void createDestDir()
     if (!dest_exists) {
         if (Settings::canCreateDir()) {
             std::cout << "* Creating output directory " << dest_folder << "\n\n";
-            std::string command = std::string("mkdir -p ") + dest_folder;
-            if (systemp(command) != 0) {
-                std::cerr << "\n/!\\ ERROR: An error occured while creating dest folder\n";
+            if (!mkdir(dest_folder)) {
+                std::cerr << "\n/!\\ ERROR: An error occured while creating " + dest_folder + "\n";
                 exit(1);
             }
         }

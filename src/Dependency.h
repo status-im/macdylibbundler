@@ -27,6 +27,7 @@ public:
     bool mergeIfSameAs(Dependency& dep2);
 
     void print();
+
     void copyYourself();
     void fixFileThatDependsOnMe(std::string file);
 

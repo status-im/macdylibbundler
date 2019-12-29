@@ -23,13 +23,19 @@ std::string systemOutput(const std::string& cmd);
 int systemp(const std::string& cmd);
 
 void tokenize(const std::string& str, const char* delimiters, std::vector<std::string>*);
+
+std::vector<std::string> lsDir(std::string path);
 bool fileExists(std::string filename);
 bool isRpath(const std::string& path);
+
+void changeId(std::string binary_file, std::string new_id);
+void changeInstallName(std::string binary_file, std::string old_name, std::string new_name);
 
 void copyFile(std::string from, std::string to);
 void deleteFile(std::string path, bool overwrite);
 void deleteFile(std::string path);
 
+bool mkdir(std::string path);
 void createDestDir();
 std::string getUserInputDirForFile(const std::string& filename);
 
