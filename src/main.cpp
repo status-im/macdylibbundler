@@ -133,7 +133,6 @@ int main (int argc, char * const argv[])
         collectDependencies(Settings::fileToFix(n));
 
     collectSubDependencies();
-    copyQtPlugins();
     doneWithDeps_go();
 
     return 0;

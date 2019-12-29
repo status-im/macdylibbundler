@@ -23,6 +23,7 @@ std::set<std::string> frameworks;
 std::set<std::string> rpaths;
 std::map<std::string, std::vector<std::string>> rpaths_per_file;
 std::map<std::string, std::string> rpath_to_fullpath;
+bool qt_plugins_called = false;
 
 void initRpaths()
 {
@@ -42,8 +43,9 @@ void changeLibPathsOnFile(std::string file_to_fix)
     std::cout << "* Fixing dependencies on " << file_to_fix << "\n";
 
     const int dep_amount = deps_per_file[file_to_fix].size();
-    for (size_t n=0; n<dep_amount; ++n)
+    for (size_t n=0; n<dep_amount; ++n) {
         deps_per_file[file_to_fix][n].fixFileThatDependsOnMe(file_to_fix);
+    }
 }
 
 void collectRpaths(const std::string& filename)
@@ -53,7 +55,7 @@ void collectRpaths(const std::string& filename)
         return;
     }
     if (Settings::verboseOutput())
-        std::cout << "collecting rpaths for: " << filename << std::endl;
+        std::cout << "  collecting rpaths for: " << filename << std::endl;
 
     size_t pos = 0;
     bool read_rpath = false;
@@ -228,9 +230,10 @@ void addDependency(std::string path, std::string dependent_file)
 
     // check if this library was already added to |deps_per_file[dependent_file]| to avoid duplicates
     bool in_deps_per_file = false;
-    for (size_t n=0; n<deps_per_file[dependent_file].size(); ++n)
+    for (size_t n=0; n<deps_per_file[dependent_file].size(); ++n) {
         if (dep.mergeIfSameAs(deps_per_file[dependent_file][n]))
             in_deps_per_file = true;
+    }
 
     // check if this library is in /usr/lib, /System/Library, or in ignored list
     if (!Settings::isPrefixBundled(dep.getPrefix()))
@@ -307,6 +310,7 @@ void collectDependencies(std::string dependent_file)
 // recursively collect each dependency's dependencies
 void collectSubDependencies()
 {
+    size_t dep_counter = deps.size();
     if (Settings::verboseOutput()) {
         std::cout << "(pre sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
         std::cout << "(pre sub) # OF DEPS: " << deps.size() << std::endl;
@@ -319,7 +323,7 @@ void collectSubDependencies()
         for (size_t n=0; n<deps_size; n++) {
             std::string original_path = deps[n].getOriginalPath();
             if (Settings::verboseOutput())
-                std::cout << "(collect sub deps) original path: " << original_path << std::endl;
+                std::cout << "  (collect sub deps) original path: " << original_path << std::endl;
             if (isRpath(original_path))
                 original_path = searchFilenameInRpaths(original_path);
 
@@ -338,9 +342,8 @@ void collectSubDependencies()
                     continue;
                 // trim useless info, keep only library name
                 std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-                std::string full_path = dep_path;
                 if (isRpath(dep_path)) {
-                    full_path = searchFilenameInRpaths(dep_path, original_path);
+                    std::string full_path = searchFilenameInRpaths(dep_path, original_path);
                     collectRpathsForFilename(full_path);
                 }
                 addDependency(dep_path, original_path);
@@ -354,6 +357,10 @@ void collectSubDependencies()
     if (Settings::verboseOutput()) {
         std::cout << "(post sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
         std::cout << "(post sub) # OF DEPS: " << deps.size() << std::endl;
+    }
+    if (Settings::bundleFrameworks()) {
+        if (!qt_plugins_called || (deps.size() != dep_counter))
+            copyQtPlugins();
     }
 }
 
@@ -403,7 +410,9 @@ void createQtConf(std::string directory)
 
 void copyQtPlugins()
 {
+    qt_plugins_called = true;
     bool qtCoreFound = false;
+    bool qtGuiFound = false;
     bool qtNetworkFound = false;
     bool qtSqlFound = false;
     bool qtSvgFound = false;
@@ -412,6 +421,8 @@ void copyQtPlugins()
     bool qt3dQuickRenderFound = false;
     bool qtPositioningFound = false;
     bool qtLocationFound = false;
+    bool qtTextToSpeechFound = false;
+    bool qtWebViewFound = false;
     std::string original_file;
 
     for (std::set<std::string>::iterator it = frameworks.begin(); it != frameworks.end(); ++it) {
@@ -436,6 +447,10 @@ void copyQtPlugins()
             qtPositioningFound = true;
         if (framework.find("QtLocation") != std::string::npos)
             qtLocationFound = true;
+        if (framework.find("TextToSpeech") != std::string::npos)
+            qtTextToSpeechFound = true;
+        if (framework.find("WebView") != std::string::npos)
+            qtWebViewFound = true;
     }
 
     if (!qtCoreFound)
@@ -450,13 +465,15 @@ void copyQtPlugins()
         std::string prefix = filePrefix(framework_root);
         std::string qt_prefix = filePrefix(prefix.substr(0, prefix.size()-1));
         std::string qt_plugins_prefix = qt_prefix + "plugins/";
-        mkdir(dest + plugin);
-        copyFile(qt_plugins_prefix + plugin, dest);
-        std::vector<std::string> files = lsDir(dest + plugin+"/");
-        for (const auto& file : files) {
-            Settings::addFileToFix(dest + plugin+"/"+file);
-            collectDependencies(dest + plugin+"/"+file);
-            changeId(dest + plugin+"/"+file, "@rpath/" + plugin+"/"+file);
+        if (fileExists(qt_plugins_prefix + plugin)) {
+            mkdir(dest + plugin);
+            copyFile(qt_plugins_prefix + plugin, dest);
+            std::vector<std::string> files = lsDir(dest + plugin+"/");
+            for (const auto& file : files) {
+                Settings::addFileToFix(dest + plugin+"/"+file);
+                collectDependencies(dest + plugin+"/"+file);
+                changeId(dest + plugin+"/"+file, "@rpath/" + plugin+"/"+file);
+            }
         }
     };
 
@@ -473,8 +490,13 @@ void copyQtPlugins()
     fixupPlugin("printsupport");
     fixupPlugin("styles");
     fixupPlugin("imageformats");
+    fixupPlugin("iconengines");
     if (!qtSvgFound)
         systemp("rm -f " + dest + "imageformats/libqsvg.dylib");
+    if (qtGuiFound) {
+        fixupPlugin("platforminputcontexts");
+        fixupPlugin("virtualkeyboard");
+    }
     if (qtNetworkFound)
         fixupPlugin("bearer");
     if (qtSqlFound)
@@ -493,17 +515,10 @@ void copyQtPlugins()
         fixupPlugin("position");
     if (qtLocationFound)
         fixupPlugin("geoservices");
+    if (qtTextToSpeechFound)
+        fixupPlugin("texttospeech");
+    if (qtWebViewFound)
+        fixupPlugin("webview");
 
-    if (Settings::verboseOutput()) {
-        std::cout << "(post qt) # OF FILES: " << Settings::filesToFixCount() << std::endl;
-        std::cout << "(post qt) # OF DEPS: " << deps.size() << std::endl;
-    }
-
-    // TODO: evaluate deps of Qt plugins to see if this can be skipped
     collectSubDependencies();
-
-    if (Settings::verboseOutput()) {
-        std::cout << "(post qt, post sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
-        std::cout << "(post qt, post sub) # OF DEPS: " << deps.size() << std::endl;
-    }
 }

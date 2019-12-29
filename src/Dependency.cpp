@@ -177,10 +177,10 @@ bool Dependency::mergeIfSameAs(Dependency& dep2)
 
 void Dependency::print()
 {
-    std::cout << "\n* " << filename << " from " << prefix << "\n";
+    std::cout << "\n* " << filename << " from " << prefix << std::endl;
 
     for (size_t n=0; n<symlinks.size(); ++n) {
-        std::cout << "    symlink --> " << symlinks[n] << "\n";
+        std::cout << "    symlink --> " << symlinks[n] << std::endl;
     }
 }
 
