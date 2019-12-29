@@ -22,8 +22,8 @@ public:
     std::string getSymlink(int i) const { return symlinks[i]; }
     std::string getPrefix() const { return prefix; }
 
-    // Compares the given dependency with this one. If both refer to the same file,
-    // it returns true and merges both entries into one.
+    // Compare the given dependency with this one. If both refer to the same file,
+    // merge both entries into one and return true.
     bool mergeIfSameAs(Dependency& dep2);
 
     void print();
@@ -33,10 +33,12 @@ public:
 
 private:
     bool is_framework;
+
     // origin
     std::string filename;
     std::string prefix;
     std::vector<std::string> symlinks;
+
     // installation
     std::string new_name;
 };

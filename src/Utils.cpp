@@ -264,8 +264,8 @@ std::string getUserInputDirForFile(const std::string& filename)
 
     while (true) {
         if (Settings::quietOutput())
-            std::cerr << "\n/!\\ WARNING: Library " << filename << " has an incomplete name (location unknown)\n";
-        std::cout << "\nPlease specify the directory where this library is located (or enter 'quit' to abort): ";
+            std::cerr << "\n/!\\ WARNING: Dependency " << filename << " has an incomplete name (location unknown)\n";
+        std::cout << "\nPlease specify the directory where this file is located (or enter 'quit' to abort): ";
         fflush(stdout);
 
         std::string prefix;

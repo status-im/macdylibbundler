@@ -64,11 +64,22 @@ Dependency::Dependency(std::string path, std::string dependent_file) : is_framew
     std::string original_file;
     std::string warning_msg;
 
+    rtrim_in_place(path);
+
+    if (Settings::verboseOutput()) {
+        std::cout<< "** Dependency ctor **" << std::endl;
+        if (path != dependent_file)
+            std::cout << "  dependent file:  " << dependent_file << std::endl;
+        std::cout << "  dependency path: " << path << std::endl;
+    }
+
     if (isRpath(path)) {
         original_file = searchFilenameInRpaths(path, dependent_file);
     }
-    else if (realpath(rtrim(path).c_str(), original_file_buffer)) {
+    else if (realpath(path.c_str(), original_file_buffer)) {
         original_file = original_file_buffer;
+        if (Settings::verboseOutput())
+            std::cout << "  original_file:   " << original_file << std::endl;
     }
     else {
         warning_msg = "\n/!\\ WARNING: Cannot resolve path '" + path + "'\n";
@@ -76,21 +87,17 @@ Dependency::Dependency(std::string path, std::string dependent_file) : is_framew
     }
 
     // check if given path is a symlink
-    if (original_file != rtrim(path)) {
-        filename = stripPrefix(original_file);
-        prefix = filePrefix(original_file);
+    if (original_file != path)
         addSymlink(path);
-    }
-    else {
-        filename = stripPrefix(path);
-        prefix = filePrefix(path);
-    }
+
+    prefix = filePrefix(original_file);
+    filename = stripPrefix(original_file);
 
     // check if this dependency is in /usr/lib, /System/Library, or in ignored list
     if (!Settings::isPrefixBundled(prefix))
         return;
 
-    if (getOriginalPath().find(".framework") != std::string::npos) {
+    if (original_file.find(".framework") != std::string::npos) {
         is_framework = true;
         std::string framework_root = getFrameworkRoot(original_file);
         std::string framework_path = getFrameworkPath(original_file);
@@ -130,11 +137,9 @@ Dependency::Dependency(std::string path, std::string dependent_file) : is_framew
     // if the location is still unknown, ask the user for search path
     if (!Settings::isPrefixIgnored(prefix) && (prefix.empty() || !fileExists(prefix+filename))) {
         if (!Settings::quietOutput())
-            std::cerr << "\n/!\\ WARNING: Library " << filename << " has an incomplete name (location unknown)\n";
-        if (Settings::verboseOutput()) {
-            std::cout << "path: " << (prefix+filename) << std::endl;
-            std::cout << "prefix: " << prefix << std::endl;
-        }
+            std::cerr << "\n/!\\ WARNING: Dependency " << filename << " of " << dependent_file << " not found\n";
+        if (Settings::verboseOutput())
+            std::cout << "     path: " << (prefix+filename) << std::endl;
         missing_prefixes = true;
         paths.push_back(getUserInputDirForFile(filename));
     }
