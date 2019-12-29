@@ -33,9 +33,14 @@ Here is a list of flags you can pass to dylibbundler:
 Displays a summary of options
 </blockquote>
 
+`-a`, `--app` (path to app bundle)
+<blockquote>
+Application bundle to make self-contained. Fixes the main executable of the app bundle. Add additional binary files to fix up with the `-x` flag.
+</blockquote>
+
 `-x`, `--fix-file` (executable or plug-in filepath)
 <blockquote>
-Fixes given executable or plug-in file (a .dylib can work too. anything on which `otool -L` works is accepted by `-x`). dylibbundler will walk through the dependencies of the specified file to build a dependency list. It will also fix the said files' dependencies so that it expects to find the libraries relative to itself (e.g. in the app bundle) instead of at an absolute path (e.g. /usr/local/lib). To pass multiple files to fix, simply specify multiple `-x` flags.
+Fixes given executable or plug-in file (ex: .dylib, .so) anything on which `otool -L` works is accepted by `-x`. dylibbundler will walk through the dependencies of the specified file to build a dependency list. It will also fix the said files' dependencies so that it expects to find the libraries relative to itself (e.g. in the app bundle) instead of at an absolute path (e.g. /usr/local/lib). To pass multiple files to fix, simply specify multiple `-x` flags.
 </blockquote>
 
 `-b`, `--bundle-deps`
@@ -47,7 +52,7 @@ fixes dependencies where bundled libraries depend on each other. If this option 
 `-f`, `--bundle-frameworks`
 <blockquote>
 Copies frameworks to a local directory, fixes their internal name so that they are aware of their new location,
-fixes dependencies where bundled libraries depend on each other. If this option is not passed, no frameworks will be prepared for distribution.
+fixes dependencies where bundled libraries depend on each other. If this option is not passed, dependencies contained in frameworks will be ignored. dylibbundler will also copy any needed Qt plugins and create qt.conf in the `Resources` directory (no need to run macdeployqt).
 </blockquote>
 
 `-i`, `--ignore` (path)

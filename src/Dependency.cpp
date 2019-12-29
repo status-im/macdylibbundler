@@ -177,10 +177,11 @@ bool Dependency::mergeIfSameAs(Dependency& dep2)
 
 void Dependency::print()
 {
-    std::cout << "\n * " << filename << " from " << prefix << "\n";
+    std::cout << "\n* " << filename << " from " << prefix << "\n";
 
-    for (size_t n=0; n<symlinks.size(); ++n)
-        std::cout << "     symlink --> " << symlinks[n] << "\n";;
+    for (size_t n=0; n<symlinks.size(); ++n) {
+        std::cout << "    symlink --> " << symlinks[n] << "\n";
+    }
 }
 
 void Dependency::copyYourself()
@@ -217,6 +218,8 @@ void Dependency::copyYourself()
 
         deleteFile(headers_path, true);
         deleteFile(headers_realpath, true);
+
+        deleteFile(dest_path + "/*.prl");
     }
 
     // fix the lib's inner name
@@ -228,15 +231,17 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
     // for main lib file
     changeInstallName(file_to_fix, getOriginalPath(), getInnerPath());
     // for symlinks
-    for (size_t n=0; n<symlinks.size(); ++n)
+    for (size_t n=0; n<symlinks.size(); ++n) {
         changeInstallName(file_to_fix, symlinks[n], getInnerPath());
+    }
 
-    // FIXME - hackish
+    // TODO: revise
     if (missing_prefixes) {
         // for main lib file
         changeInstallName(file_to_fix, filename, getInnerPath());
         // for symlinks
-        for (size_t n=0; n<symlinks.size(); ++n)
+        for (size_t n=0; n<symlinks.size(); ++n) {
             changeInstallName(file_to_fix, symlinks[n], getInnerPath());
+        }
     }
 }

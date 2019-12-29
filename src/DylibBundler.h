@@ -13,13 +13,13 @@ std::string searchFilenameInRpaths(const std::string& rpath_dep, const std::stri
 std::string searchFilenameInRpaths(const std::string& rpath_file);
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix);
 
-void createQtConf(std::string directory);
-void copyQtPlugins();
-
 void addDependency(std::string path, std::string dependent_file);
 void collectDependencies(std::string dependent_file);
 void collectSubDependencies();
 
 void doneWithDeps_go();
+
+void createQtConf(std::string directory);
+void copyQtPlugins();
 
 #endif

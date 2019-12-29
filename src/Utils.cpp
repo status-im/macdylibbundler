@@ -214,7 +214,8 @@ bool mkdir(std::string path)
 void createDestDir()
 {
     std::string dest_folder = Settings::destFolder();
-    std::cout << "* Checking output directory " << dest_folder << "\n";
+    if (Settings::verboseOutput())
+        std::cout << "* Checking output directory " << dest_folder << "\n";
 
     bool dest_exists = fileExists(dest_folder);
 
@@ -272,7 +273,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         std::cin >> prefix;
         std::cout << std::endl;
 
-        if (prefix.compare("quit") == 0)
+        if (prefix.compare("quit") == 0 || prefix.compare("exit") == 0 || prefix.compare("abort") == 0)
             exit(1);
 
         if (!prefix.empty() && prefix[prefix.size()-1] != '/')
