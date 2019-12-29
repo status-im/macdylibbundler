@@ -16,6 +16,8 @@ void appBundle(std::string path);
 std::string destFolder();
 void destFolder(std::string path);
 
+std::string executableFolder();
+std::string frameworksFolder();
 std::string pluginsFolder();
 std::string resourcesFolder();
 

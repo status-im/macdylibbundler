@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <numeric>
+#include <regex>
 #include <set>
 #ifdef __linux
 #include <linux/limits.h>
@@ -21,6 +22,16 @@ std::map<std::string, bool> deps_collected;
 std::set<std::string> frameworks;
 std::set<std::string> rpaths;
 std::map<std::string, std::vector<std::string>> rpaths_per_file;
+
+void initRpaths()
+{
+    std::string executable_path = Settings::executableFolder();
+    std::string frameworks_path = Settings::frameworksFolder();
+    std::string plugins_path = Settings::pluginsFolder();
+    rpaths.insert(executable_path);
+    rpaths.insert(frameworks_path);
+    rpaths.insert(plugins_path);
+}
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
@@ -47,6 +58,9 @@ void collectRpaths(const std::string& filename)
     std::vector<std::string> lc_lines;
     tokenize(output, "\n", &lc_lines);
 
+    if (Settings::verboseOutput())
+        std::cout << "collecting rpaths for: " << filename << std::endl;
+
     size_t pos = 0;
     bool read_rpath = false;
     while (pos < lc_lines.size()) {
@@ -63,8 +77,7 @@ void collectRpaths(const std::string& filename)
             start_pos += 5; // to exclude "path "
             std::string rpath = line.substr(start_pos, end_pos - start_pos);
             if (Settings::verboseOutput()) {
-                std::cout << "rpath line: " << line << std::endl;
-                std::cout << "inserting rpath: " << rpath << std::endl;
+                std::cout << "  rpath: " << rpath << std::endl;
             }
             rpaths.insert(rpath);
             rpaths_per_file[filename].push_back(rpath);
@@ -85,23 +98,51 @@ void collectRpathsForFilename(const std::string& filename)
         collectRpaths(filename);
 }
 
-std::string searchFilenameInRpaths(const std::string& rpath_file)
+std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file)
 {
     char buffer[PATH_MAX];
     std::string fullpath;
+    std::string file_prefix = filePrefix(dependent_file);
     std::string suffix = rpath_file.substr(rpath_file.rfind("/")+1);
 
     for (std::set<std::string>::iterator it = rpaths.begin(); it != rpaths.end(); ++it) {
-        std::string path = *it + "/" + suffix;
-        if (realpath(path.c_str(), buffer)) {
-            fullpath = buffer;
-            break;
+        std::string rpath = *it;
+        if (rpath[rpath.size()-1] != '/')
+            rpath += "/";
+        std::string path = rpath + suffix;
+        std::cout << "  dependent file: " << dependent_file << std::endl;
+        std::cout << "    dependency: " << rpath_file << std::endl;
+        std::cout << "    rpath: " << path << std::endl;
+        if (path.find("@executable_path") != std::string::npos || path.find("@loader_path") != std::string::npos) {
+            if (path.find("@executable_path") != std::string::npos)
+                path = std::regex_replace(path, std::regex("@executable_path/"), Settings::executableFolder());
+            else if (path.find("@loader_path") != std::string::npos)
+                path = std::regex_replace(path, std::regex("@loader_path/"), file_prefix);
+            std::cout << "    path to search: " << path << std::endl;
+            if (realpath(path.c_str(), buffer)) {
+                fullpath = buffer;
+                break;
+            }
+        }
+        else if (path.find("@rpath") != std::string::npos) {
+            std::string pathE = std::regex_replace(path, std::regex("@rpath/"), Settings::executableFolder());
+            std::string pathL = std::regex_replace(path, std::regex("@rpath/"), file_prefix);
+            std::cout << "    path to search: " << pathE << std::endl;
+            if (realpath(pathE.c_str(), buffer)) {
+                fullpath = buffer;
+                break;
+            }
+            std::cout << "    path to search: " << pathL << std::endl;
+            if (realpath(pathL.c_str(), buffer)) {
+                fullpath = buffer;
+                break;
+            }
         }
     }
 
     if (Settings::verboseOutput()) {
-        std::cout << "rpath file: " << rpath_file << std::endl;
-        std::cout << "suffix: " << suffix << std::endl;
+        // std::cout << "rpath file: " << rpath_file << std::endl;
+        // std::cout << "suffix: " << suffix << std::endl;
         std::cout << "rpath fullpath: " << fullpath << std::endl;
     }
 
@@ -116,6 +157,11 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
     }
 
     return fullpath;
+}
+
+std::string searchFilenameInRpaths(const std::string& rpath_file)
+{
+    return searchFilenameInRpaths(rpath_file, rpath_file);
 }
 
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
@@ -138,6 +184,121 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
     }
 }
 
+void addDependency(std::string path, std::string dependent_file)
+{
+    Dependency dep(path, dependent_file);
+
+    // check if this library was already added to |deps| to avoid duplicates
+    bool in_deps = false;
+    for (size_t n=0; n<deps.size(); ++n)
+        if (dep.mergeIfSameAs(deps[n]))
+            in_deps = true;
+
+    // check if this library was already added to |deps_per_file[dependent_file]| to avoid duplicates
+    bool in_deps_per_file = false;
+    for (size_t n=0; n<deps_per_file[dependent_file].size(); ++n)
+        if (dep.mergeIfSameAs(deps_per_file[dependent_file][n]))
+            in_deps_per_file = true;
+
+    // check if this library is in /usr/lib, /System/Library, or in ignored list
+    if (!Settings::isPrefixBundled(dep.getPrefix()))
+        return;
+
+    if (!in_deps && dep.isFramework())
+        frameworks.insert(dep.getOriginalPath());
+
+    if (!in_deps)
+        deps.push_back(dep);
+
+    if (!in_deps_per_file)
+        deps_per_file[dependent_file].push_back(dep);
+}
+
+// Fill |lines| with dependencies of given |filename|
+void collectDependencies(std::string dependent_file, std::vector<std::string>& lines)
+{
+    std::string cmd = "otool -L " + dependent_file;
+    std::string output = systemOutput(cmd);
+
+    if (output.find("can't open file") != std::string::npos
+            || output.find("No such file") != std::string::npos
+            || output.size() < 1) {
+        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << dependent_file << " to read its dependencies\n";
+        exit(1);
+    }
+    // split output
+    tokenize(output, "\n", &lines);
+}
+
+void collectDependencies(std::string dependent_file)
+{
+    std::vector<std::string> lines;
+    collectDependencies(dependent_file, lines);
+
+    for (size_t n=0; n<lines.size(); n++) {
+        if (!Settings::bundleFrameworks())
+            if (lines[n].find(".framework") != std::string::npos)
+                continue;
+        // lines containing path begin with a tab
+        if (lines[n][0] != '\t')
+            continue;
+        // trim useless info, keep only library path
+        std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
+        if (isRpath(dep_path))
+            collectRpathsForFilename(dependent_file);
+
+        addDependency(dep_path, dependent_file);
+    }
+    deps_collected[dependent_file] = true;
+}
+
+void collectSubDependencies()
+{
+    size_t deps_size = deps.size();
+    std::cout << "(pre sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    std::cout << "(pre sub) # OF DEPS: " << deps.size() << std::endl;
+    // recursively collect each dependency's dependencies
+    while (true) {
+        deps_size = deps.size();
+
+        for (size_t n=0; n<deps_size; n++) {
+            std::string original_path = deps[n].getOriginalPath();
+            if (Settings::verboseOutput())
+                std::cout << "original path: " << original_path << std::endl;
+            if (isRpath(original_path))
+                original_path = searchFilenameInRpaths(original_path);
+
+            collectRpathsForFilename(original_path);
+
+            std::vector<std::string> lines;
+            collectDependencies(original_path, lines);
+
+            for (size_t n=0; n<lines.size(); ++n) {
+                if (!Settings::bundleFrameworks())
+                    if (lines[n].find(".framework") != std::string::npos)
+                        continue;
+                // lines containing path begin with a tab
+                if (lines[n][0] != '\t')
+                    continue;
+                // trim useless info, keep only library name
+                std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
+                std::string full_path = dep_path;
+                if (isRpath(dep_path)) {
+                    full_path = searchFilenameInRpaths(dep_path);
+                    collectRpathsForFilename(full_path);
+                }
+
+                addDependency(dep_path, full_path);
+            }
+        }
+        // if no more dependencies were added on this iteration, stop searching
+        if (deps.size() == deps_size)
+            break;
+    }
+    std::cout << "(post sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    std::cout << "(post sub) # OF DEPS: " << deps.size() << std::endl;
+}
+
 void createQtConf(std::string directory)
 {
     std::string contents = "[Paths]\n"
@@ -146,8 +307,7 @@ void createQtConf(std::string directory)
                            "Qml2Imports = Resources/qml\n";
     if (directory[directory.size()-1] != '/')
         directory += "/";
-    std::string out_path = directory + "qt.conf";
-    std::ofstream out(out_path);
+    std::ofstream out(directory + "qt.conf");
     out << contents;
     out.close();
 }
@@ -164,6 +324,7 @@ void copyQtPlugins()
     bool qtPositioningFound = false;
     bool qtLocationFound = false;
     std::string original_file;
+
     for (std::set<std::string>::iterator it = frameworks.begin(); it != frameworks.end(); ++it) {
         std::string framework = *it;
         if (framework.find("QtCore") != std::string::npos) {
@@ -253,123 +414,12 @@ void copyQtPlugins()
     std::cout << "(post qt, post sub) # OF DEPS: " << deps.size() << std::endl;
 }
 
-void addDependency(std::string path, std::string filename)
-{
-    Dependency dep(path);
-
-    // check if this library was already added to |deps| to avoid duplicates
-    bool in_deps = false;
-    for (size_t n=0; n<deps.size(); ++n)
-        if (dep.mergeIfSameAs(deps[n]))
-            in_deps = true;
-
-    // check if this library was already added to |deps_per_file[filename]| to avoid duplicates
-    bool in_deps_per_file = false;
-    for (size_t n=0; n<deps_per_file[filename].size(); ++n)
-        if (dep.mergeIfSameAs(deps_per_file[filename][n]))
-            in_deps_per_file = true;
-
-    // check if this library is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(dep.getPrefix()))
-        return;
-
-    if (!in_deps && dep.isFramework())
-        frameworks.insert(dep.getOriginalPath());
-
-    if (!in_deps)
-        deps.push_back(dep);
-
-    if (!in_deps_per_file)
-        deps_per_file[filename].push_back(dep);
-}
-
-// Fill |lines| with dependencies of given |filename|
-void collectDependencies(std::string filename, std::vector<std::string>& lines)
-{
-    std::string cmd = "otool -L " + filename;
-    std::string output = systemOutput(cmd);
-
-    if (output.find("can't open file") != std::string::npos
-            || output.find("No such file") != std::string::npos
-            || output.size() < 1) {
-        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << filename << " to read its dependencies\n";
-        exit(1);
-    }
-    // split output
-    tokenize(output, "\n", &lines);
-    deps_collected[filename] = true;
-}
-
-void collectDependencies(std::string filename)
-{
-    std::vector<std::string> lines;
-    collectDependencies(filename, lines);
-
-    for (size_t n=0; n<lines.size(); n++) {
-        if (!Settings::bundleFrameworks())
-            if (lines[n].find(".framework") != std::string::npos)
-                continue;
-        // lines containing path begin with a tab
-        if (lines[n][0] != '\t')
-            continue;
-        // trim useless info, keep only library path
-        std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-        if (isRpath(dep_path))
-            collectRpathsForFilename(filename);
-
-        addDependency(dep_path, filename);
-    }
-}
-
-void collectSubDependencies()
-{
-    size_t deps_size = deps.size();
-    std::cout << "(pre sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
-    std::cout << "(pre sub) # OF DEPS: " << deps.size() << std::endl;
-    // recursively collect each dependency's dependencies
-    while (true) {
-        deps_size = deps.size();
-
-        for (size_t n=0; n<deps_size; n++) {
-            std::string original_path = deps[n].getOriginalPath();
-            if (Settings::verboseOutput())
-                std::cout << "original path: " << original_path << std::endl;
-            if (isRpath(original_path))
-                original_path = searchFilenameInRpaths(original_path);
-
-            collectRpathsForFilename(original_path);
-
-            std::vector<std::string> lines;
-            collectDependencies(original_path, lines);
-
-            for (size_t n=0; n<lines.size(); ++n) {
-                if (!Settings::bundleFrameworks())
-                    if (lines[n].find(".framework") != std::string::npos)
-                        continue;
-                // lines containing path begin with a tab
-                if (lines[n][0] != '\t')
-                    continue;
-                // trim useless info, keep only library name
-                std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-                std::string full_path = dep_path;
-                if (isRpath(dep_path)) {
-                    full_path = searchFilenameInRpaths(dep_path);
-                    collectRpathsForFilename(full_path);
-                }
-
-                addDependency(dep_path, full_path);
-            }
-        }
-        // if no more dependencies were added on this iteration, stop searching
-        if (deps.size() == deps_size)
-            break;
-    }
-    std::cout << "(post sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
-    std::cout << "(post sub) # OF DEPS: " << deps.size() << std::endl;
-}
-
 void doneWithDeps_go()
 {
+    for (std::set<std::string>::iterator it = rpaths.begin(); it != rpaths.end(); ++it) {
+        std::cout << "rpaths: " << *it << std::endl;
+    }
+
     const size_t deps_size = deps.size();
 
     std::cout << "\n";

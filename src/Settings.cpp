@@ -48,6 +48,10 @@ void destFolder(std::string path)
         dest_folder = app_bundle + "Contents/" + dest_folder_str;
 }
 
+std::string executableFolder() { return app_bundle + "Contents/MacOS/"; }
+
+std::string frameworksFolder() { return app_bundle + "Contents/Frameworks/"; }
+
 std::string pluginsFolder() { return app_bundle + "Contents/PlugIns/"; }
 
 std::string resourcesFolder() { return app_bundle + "Contents/Resources/"; }

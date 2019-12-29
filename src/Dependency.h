@@ -6,7 +6,7 @@
 
 class Dependency {
 public:
-    Dependency(std::string path);
+    Dependency(std::string path, std::string dependent_file);
 
     std::string getOriginalFileName() const { return filename; }
     std::string getOriginalPath() const { return prefix + filename; }

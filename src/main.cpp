@@ -126,6 +126,9 @@ int main (int argc, char * const argv[])
         exit(0);
     }
 
+    // if (!Settings::appBundle().empty())
+    //     initRpaths();
+
     std::cout << "* Collecting dependencies...\n";
 
     const size_t count = Settings::filesToFixCount();

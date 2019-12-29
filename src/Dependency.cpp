@@ -27,7 +27,6 @@ std::vector<std::string> paths;
 // initialize the dylib search paths
 void initSearchPaths()
 {
-    std::cout << "**** RUNNING initSearchPaths() ****\n";
     // check the same paths the system would search for dylibs
     std::string searchPaths;
     char *dyldLibPath = std::getenv("DYLD_LIBRARY_PATH");
@@ -59,14 +58,14 @@ void initSearchPaths()
 // if some libs are missing prefixes, then more stuff will be necessary to do
 bool missing_prefixes = false;
 
-Dependency::Dependency(std::string path) : is_framework(false)
+Dependency::Dependency(std::string path, std::string dependent_file) : is_framework(false)
 {
     char original_file_buffer[PATH_MAX];
     std::string original_file;
     std::string warning_msg;
 
     if (isRpath(path)) {
-        original_file = searchFilenameInRpaths(path);
+        original_file = searchFilenameInRpaths(path, dependent_file);
     }
     else if (realpath(rtrim(path).c_str(), original_file_buffer)) {
         original_file = original_file_buffer;
