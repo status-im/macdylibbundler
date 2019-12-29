@@ -220,7 +220,7 @@ void Dependency::copyYourself()
     }
 
     // fix the lib's inner name
-    changeId(install_path, inner_path);
+    changeId(install_path, "@rpath/"+new_name);
 }
 
 void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
