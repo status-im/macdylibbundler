@@ -8,7 +8,7 @@ bool overwrite_dir = false;
 bool create_dir = false;
 bool quiet_output = false;
 bool verbose_output = false;
-bool bundle_libs = false;
+bool bundle_libs = true;
 bool bundle_frameworks = false;
 
 std::string dest_folder_str = "Frameworks";

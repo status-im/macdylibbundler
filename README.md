@@ -1,4 +1,4 @@
-mac dylib bundler
+mac dylib bundler v2
 ================
 
 
@@ -40,26 +40,24 @@ Application bundle to make self-contained. Fixes the main executable of the app 
 
 `-x`, `--fix-file` (executable or plug-in filepath)
 <blockquote>
-Fixes given executable or plug-in file (ex: .dylib, .so) anything on which `otool -L` works is accepted by `-x`. dylibbundler will walk through the dependencies of the specified file to build a dependency list. It will also fix the said files' dependencies so that it expects to find the libraries relative to itself (e.g. in the app bundle) instead of at an absolute path (e.g. /usr/local/lib). To pass multiple files to fix, simply specify multiple `-x` flags.
+Fixes given executable or plug-in file (ex: .dylib, .so). Anything on which `otool -L` works is accepted by `-x`. dylibbundler will walk through the dependencies of the specified file to build a dependency list. It will also fix the said files' dependencies so that it expects to find the libraries relative to itself (e.g. in the app bundle) instead of at an absolute path (e.g. /usr/local/lib). To pass multiple files to fix, simply specify multiple `-x` flags.
 </blockquote>
 
+<!-- 
 `-b`, `--bundle-deps`
 <blockquote>
 Copies libaries to a local directory, fixes their internal name so that they are aware of their new location,
 fixes dependencies where bundled libraries depend on each other. If this option is not passed, no libraries will be prepared for distribution.
 </blockquote>
+ -->
 
-`-f`, `--bundle-frameworks`
+`-f`, `--frameworks`
 <blockquote>
-Copies frameworks to a local directory, fixes their internal name so that they are aware of their new location,
-fixes dependencies where bundled libraries depend on each other. If this option is not passed, dependencies contained in frameworks will be ignored. dylibbundler will also copy any needed Qt plugins and create qt.conf in the `Resources` directory (no need to run macdeployqt).
+Copy framework dependencies to app bundle and fix internal names and rpaths. If this option is not passed, dependencies contained in frameworks will be ignored. dylibbundler will also deploy Qt frameworks & plugins, eliminating the need to use `macdeployqt`.
 </blockquote>
 
-`-i`, `--ignore` (path)
-> Dylibs in (path) will be ignored. By default, dylibbundler will ignore libraries installed in `/usr/lib` & `/System/Library` since they are assumed to be present by default on all macOS installations. *(It is usually recommend not to install additional stuff in `/usr/`, always use ` /usr/local/` or another prefix to avoid confusion between system libs and libs you added yourself)*
-
 `-d`, `--dest-dir` (directory)
-> Sets the name of the directory in wich distribution-ready dylibs will be placed, relative to the current working directory. (Default is `./Frameworks`) For an app bundle, it is often conveniant to set it to something like `./MyApp.app/Contents/Frameworks`.
+> Sets the name of the directory in wich distribution-ready dylibs will be placed, relative to `./MyApp.app/Contents/`. (Default is `Frameworks`).
 
 `-p`, `--install-path` (libraries install path)
 > Sets the "inner" installation path of libraries, usually inside the bundle and relative to executable. (Default is `@executable_path/../Frameworks/`, which points to a directory named `Frameworks` inside the `Contents` directory of the bundle.)
@@ -69,20 +67,29 @@ fixes dependencies where bundled libraries depend on each other. If this option 
 `-s`, `--search-path` (search path)
 > Check for libraries in the specified path.
 
+`-i`, `--ignore` (path)
+> Dylibs in (path) will be ignored. By default, dylibbundler will ignore libraries installed in `/usr/lib` & `/System/Library` since they are assumed to be present by default on all macOS installations. *(It is usually recommend not to install additional stuff in `/usr/`, always use ` /usr/local/` or another prefix to avoid confusion between system libs and libs you added yourself)*
+
 `-of`, `--overwrite-files`
 > When copying libraries to the output directory, allow overwriting files when one with the same name already exists.
-
-`-od`, `--overwrite-dir`
-> If the output directory already exists, completely erase its current content before adding anything to it. (This option implies --create-dir)
 
 `-cd`, `--create-dir`
 > If the output directory does not exist, create it.
 
+`-od`, `--overwrite-dir`
+> If the output directory already exists, completely erase its current content before adding anything to it. (This option implies --create-dir)
+
+`-n`, `--just-print`
+> Print the dependencies found (without copying into app bundle).
+
 `-q`, `--quiet`
-> Print only summary information.
+> Less verbose output.
 
 `-v`, `--verbose`
-> Print extra information (useful for debugging).
+> More verbose output (only recommended for debugging).
+
+`-V`, `--version`
+> Print dylibbundler version number and exit.
 
 A command may look like
-`% dylibbundler -q -od -b -x ./HelloWorld.app/Contents/MacOS/helloworld -d ./HelloWorld.app/Contents/Frameworks/`
+`% dylibbundler -cd -of -f -q -a ./HelloWorld.app -x ./HelloWorld.app/Contents/PlugIns/printsupport`

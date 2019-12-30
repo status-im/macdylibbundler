@@ -122,7 +122,7 @@ std::vector<std::string> lsDir(std::string path)
 bool fileExists(std::string filename)
 {
     if (access(filename.c_str(), F_OK) != -1) {
-        return true; // file exists
+        return true;
     }
     else {
         std::string delims = " \f\n\r\t\v";
@@ -131,7 +131,7 @@ bool fileExists(std::string filename)
         if (access(ftrimmed.c_str(), F_OK) != -1)
             return true;
         else
-            return false; // file doesn't exist
+            return false;
     }
 }
 
@@ -168,14 +168,14 @@ void copyFile(std::string from, std::string to)
 
     std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
 
-    // copy file to local directory
+    // copy file/directory
     std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" ") + to;
     if (from != to && systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << "\n";
         exit(1);
     }
 
-    // give it write permission
+    // give file/directory write permission
     std::string command2 = std::string("chmod -R +w ") + to;
     if (systemp(command2) != 0) {
         std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << "\n";
