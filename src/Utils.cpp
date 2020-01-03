@@ -35,21 +35,51 @@ THE SOFTWARE.
 #include <unistd.h>
 using namespace std;
 
-/*
-void setInstallPath(string loc)
+string filePrefix(string in)
 {
-    path_to_libs_folder = loc;
-}*/
+    return in.substr(0, in.rfind("/")+1);
+}
+
+string stripPrefix(string in)
+{
+    return in.substr(in.rfind("/")+1);
+}
+
+string getFrameworkRoot(string in)
+{
+    return in.substr(0, in.find(".framework")+10);
+}
+
+string getFrameworkPath(string in)
+{
+    return in.substr(in.rfind(".framework/")+11);
+}
+
+std::string stripLSlash(std::string in)
+{
+    if (in[0] == '.' && in[1] == '/')
+        in = in.substr(2, in.size());
+    return in;
+}
+
+void rtrim_in_place(string& s)
+{
+    s.erase(find_if(s.rbegin(), s.rend(), [](unsigned char c){ return !isspace(c); }).base(), s.end());
+}
+
+string rtrim(string s)
+{
+    rtrim_in_place(s);
+    return s;
+}
 
 void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
 {
     vector<string>& tokens = *vectorarg;
-    
     string delimiters(delim);
     
     // skip delimiters at beginning.
     string::size_type lastPos = str.find_first_not_of( delimiters , 0);
-    
     // find first "non-delimiter".
     string::size_type pos = str.find_first_of(delimiters, lastPos);
     
@@ -64,10 +94,7 @@ void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
         // find next "non-delimiter"
         pos = str.find_first_of(delimiters, lastPos);
     }
-    
 }
-
-
 
 bool fileExists( std::string filename )
 {
@@ -95,8 +122,8 @@ bool fileExists( std::string filename )
 
 void copyFile(string from, string to)
 {
-    bool override = Settings::canOverwriteFiles();
-    if(!override)
+    bool overwrite = Settings::canOverwriteFiles();
+    if(!overwrite)
     {
         if(fileExists( to ))
         {
@@ -105,23 +132,40 @@ void copyFile(string from, string to)
         }
     }
 
-    string override_permission = string(override ? "-f " : "-n ");
+    string overwrite_permission = string(overwrite ? "-f " : "-n ");
         
-    // copy file to local directory
-    string command = string("cp ") + override_permission + from + string(" ") + to;
+    // copy file/directory
+    string command = string("cp -R ") + overwrite_permission + from + string(" ") + to;
     if( from != to && systemp( command ) != 0 )
     {
         cerr << "\n\nError : An error occured while trying to copy file " << from << " to " << to << endl;
         exit(1);
     }
     
-    // give it write permission
-    string command2 = string("chmod +w ") + to;
+    // give file/directory write permission
+    string command2 = string("chmod -R +w ") + to;
     if( systemp( command2 ) != 0 )
     {
         cerr << "\n\nError : An error occured while trying to set write permissions on file " << to << endl;
         exit(1);
     }
+}
+
+void deleteFile(string path, bool overwrite)
+{
+    string overwrite_permission = string(overwrite ? "-f " : " ");
+    string command = string("rm -r ") + overwrite_permission + path;
+    if( systemp(command) != 0 )
+    {
+        std::cerr << "\n\nError: An error occured while trying to delete " << path << "\n";
+        exit(1);
+    }
+}
+
+void deleteFile(string path)
+{
+    bool overwrite = Settings::canOverwriteFiles();
+    deleteFile(path, overwrite);
 }
 
 std::string system_get_output(std::string cmd)
@@ -203,7 +247,35 @@ std::string getUserInputDirForFile(const std::string& filename)
         else
         {
             std::cerr << (prefix+filename) << " was found. /!\\ DYLIBBUNDLER MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Manually check the executable with 'otool -L'" << std::endl;
+            Settings::addSearchPath(prefix);
             return prefix;
         }
+    }
+}
+
+std::string bundleExecutableName(const std::string& app_bundle_path)
+{
+    std::string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "
+                    + app_bundle_path + "Contents/Info.plist";
+    return system_get_output(cmd);
+}
+
+void changeId(string binary_file, string new_id)
+{
+    string command = string("install_name_tool -id ") + new_id + " " + binary_file;
+    if( systemp(command) != 0 )
+    {
+        cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << endl;
+        exit(1);
+    }
+}
+
+void changeInstallName(string binary_file, string old_name, string new_name)
+{
+    string command = string("install_name_tool -change ") + old_name + " " + new_name + " " + binary_file;
+    if( systemp(command) != 0 )
+    {
+        cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << endl;
+        exit(1);
     }
 }

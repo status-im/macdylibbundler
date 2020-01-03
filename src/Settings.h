@@ -46,8 +46,17 @@ void canCreateDir(bool permission);
 bool bundleLibs();
 void bundleLibs(bool on);
 
+bool bundleFrameworks();
+void bundleFrameworks(bool on);
+
+bool appBundleProvided();
+std::string appBundle();
+void appBundle(std::string path);
+
 std::string destFolder();
 void destFolder(std::string path);
+
+std::string executableFolder();
 
 void addFileToFix(std::string path);
 int fileToFixAmount();

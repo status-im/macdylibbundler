@@ -26,6 +26,7 @@ THE SOFTWARE.
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
+#include <regex>
 #include <set>
 #include <map>
 #ifdef __linux
@@ -41,6 +42,7 @@ std::map<std::string, std::vector<Dependency> > deps_per_file;
 std::map<std::string, bool> deps_collected;
 std::set<std::string> rpaths;
 std::map<std::string, std::vector<std::string> > rpaths_per_file;
+std::map<std::string, std::string> rpath_to_fullpath;
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
@@ -117,32 +119,98 @@ void collectRpathsForFilename(const std::string& filename)
     }
 }
 
-std::string searchFilenameInRpaths(const std::string& rpath_file)
+std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file)
 {
-    char buffer[PATH_MAX];
+    char fullpath_buffer[PATH_MAX];
     std::string fullpath;
     std::string suffix = rpath_file.substr(rpath_file.rfind("/")+1);
 
-    for (std::set<std::string>::iterator it = rpaths.begin(); it != rpaths.end(); ++it)
+    const auto check_path = [&](std::string path)
     {
-        std::string path = *it + "/" + suffix;
-        if (realpath(path.c_str(), buffer))
+        char buffer[PATH_MAX];
+        std::string file_prefix = filePrefix(dependent_file);
+        if(path.find("@executable_path") != std::string::npos || path.find("@loader_path") != std::string::npos)
         {
-            fullpath = buffer;
-            break;
+            if(path.find("@executable_path") != std::string::npos)
+            {
+                if(Settings::appBundleProvided())
+                {
+                    path = std::regex_replace(path, std::regex("@executable_path/"), Settings::executableFolder());
+                }
+            }
+            if(dependent_file != rpath_file)
+            {
+                if(path.find("@loader_path") != std::string::npos)
+                {
+                    path = std::regex_replace(path, std::regex("@loader_path/"), file_prefix);
+                }
+            }
+            if(realpath(path.c_str(), buffer))
+            {
+                fullpath = buffer;
+                rpath_to_fullpath[rpath_file] = fullpath;
+                return true;
+            }
+        }
+        else if(path.find("@rpath") != std::string::npos)
+        {
+            if(Settings::appBundleProvided())
+            {
+                std::string pathE = std::regex_replace(path, std::regex("@rpath/"), Settings::executableFolder());
+                if(realpath(pathE.c_str(), buffer))
+                {
+                    fullpath = buffer;
+                    rpath_to_fullpath[rpath_file] = fullpath;
+                    return true;
+                }
+            }
+            if(dependent_file != rpath_file)
+            {
+                std::string pathL = std::regex_replace(path, std::regex("@rpath/"), file_prefix);
+                if(realpath(pathL.c_str(), buffer))
+                {
+                    fullpath = buffer;
+                    rpath_to_fullpath[rpath_file] = fullpath;
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    // fullpath previously stored
+    if(rpath_to_fullpath.find(rpath_file) != rpath_to_fullpath.end())
+    {
+        fullpath = rpath_to_fullpath[rpath_file];
+    }
+    else if(!check_path(rpath_file))
+    {
+        for(auto it = rpaths_per_file[dependent_file].begin(); it != rpaths_per_file[dependent_file].end(); ++it)
+        {
+            std::string rpath = *it;
+            if (rpath[rpath.size()-1] != '/') rpath += "/";
+
+            std::string path = rpath + suffix;
+            if (check_path(path)) break;
         }
     }
 
-    if (fullpath.empty())
+    if(fullpath.empty())
     {
         std::cerr << "\n/!\\ WARNING : can't get path for '" << rpath_file << "'\n";
         fullpath = getUserInputDirForFile(suffix) + suffix;
-        if (realpath(fullpath.c_str(), buffer)) {
-            fullpath = buffer;
+        if(realpath(fullpath.c_str(), fullpath_buffer))
+        {
+            fullpath = fullpath_buffer;
         }
     }
 
     return fullpath;
+}
+
+std::string searchFilenameInRpaths(const std::string& rpath_file)
+{
+    return searchFilenameInRpaths(rpath_file, rpath_file);
 }
 
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
@@ -168,7 +236,7 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
 
 void addDependency(std::string path, std::string filename)
 {
-    Dependency dep(path);
+    Dependency dep(path, filename);
     
     // we need to check if this library was already added to avoid duplicates
     bool in_deps = false;
@@ -198,8 +266,8 @@ void addDependency(std::string path, std::string filename)
  */
 void collectDependencies(std::string filename, std::vector<std::string>& lines)
 {
-    // execute "otool -L" on the given file and collect the command's output
-    std::string cmd = "otool -L " + filename;
+    // execute "otool -l" on the given file and collect the command's output
+    std::string cmd = "otool -l " + filename;
     std::string output = system_get_output(cmd);
 
     if(output.find("can't open file")!=std::string::npos or output.find("No such file")!=std::string::npos or output.size()<1)
@@ -209,10 +277,31 @@ void collectDependencies(std::string filename, std::vector<std::string>& lines)
     }
     
     // split output
-    tokenize(output, "\n", &lines);
-    deps_collected[filename] = true;
-}
+    std::vector<std::string> raw_lines;
+    tokenize(output, "\n", &raw_lines);
 
+    bool searching = false;
+    for(const auto& line : raw_lines) {
+        if(line.find("cmd LC_LOAD_DYLIB") != std::string::npos)
+        {
+            if(searching)
+            {
+                std::cerr << "\n\n/!\\ ERROR: Failed to find name before next cmd" << std::endl;
+                exit(1);
+            }
+            searching = true;
+        }
+        else if(searching)
+        {
+            size_t found = line.find("name ");
+            if(found != std::string::npos)
+            {
+                lines.push_back('\t' + line.substr(found+5, std::string::npos));
+                searching = false;
+            }
+        }
+    }
+}
 
 void collectDependencies(std::string filename)
 {
@@ -226,7 +315,7 @@ void collectDependencies(std::string filename)
     {
         std::cout << "."; fflush(stdout);
         if(lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
-        if( lines[n].find(".framework") != std::string::npos ) continue; //Ignore frameworks, we can not handle them
+        if(!Settings::isPrefixBundled(lines[n])) continue; // skip system/ignored prefixes
 
         // trim useless info, keep only library name
         std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
@@ -237,7 +326,9 @@ void collectDependencies(std::string filename)
 
         addDependency(dep_path, filename);
     }
+    deps_collected[filename] = true;
 }
+
 void collectSubDependencies()
 {
     // print status to user
@@ -263,13 +354,13 @@ void collectSubDependencies()
             for(int n=0; n<line_amount; n++)
             {
                 if(lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
-                if( lines[n].find(".framework") != std::string::npos ) continue; //Ignore frameworks, we cannot handle them
+                if(!Settings::isPrefixBundled(lines[n])) continue; // skip system/ignored prefixes
                 
                 // trim useless info, keep only library name
                 std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
                 if (isRpath(dep_path))
                 {
-                    collectRpathsForFilename(searchFilenameInRpaths(dep_path));
+                    collectRpathsForFilename(searchFilenameInRpaths(dep_path, original_path));
                 }
 
                 addDependency(dep_path, original_path);

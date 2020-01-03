@@ -38,8 +38,10 @@ class Dependency
     
     // installation
     std::string new_name;
+
+    bool is_framework;
 public:
-    Dependency(std::string path);
+    Dependency(std::string path, std::string dependent_file);
 
     void print();
 

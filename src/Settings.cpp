@@ -23,6 +23,7 @@ THE SOFTWARE.
  */
 
 #include "Settings.h"
+#include "Utils.h"
 #include <vector>
 
 namespace Settings
@@ -31,6 +32,17 @@ namespace Settings
 bool overwrite_files = false;
 bool overwrite_dir = false;
 bool create_dir = false;
+bool bundle_libs = false;
+bool bundle_frameworks = false;
+
+std::string dest_folder_str = "./libs/";
+std::string dest_folder_str_app = "Frameworks/";
+std::string dest_folder = dest_folder_str;
+std::string dest_path = dest_folder;
+
+std::string inside_path_str = "@executable_path/../libs/";
+std::string inside_path_str_app = "@executable_path/../Frameworks/";
+std::string inside_path = inside_path_str;
 
 bool canOverwriteFiles(){ return overwrite_files; }
 bool canOverwriteDir(){ return overwrite_dir; }
@@ -40,27 +52,56 @@ void canOverwriteFiles(bool permission){ overwrite_files = permission; }
 void canOverwriteDir(bool permission){ overwrite_dir = permission; }
 void canCreateDir(bool permission){ create_dir = permission; }
 
+bool bundleLibs(){ return bundle_libs; }
+void bundleLibs(bool on){ bundle_libs = on; }
 
-bool bundleLibs_bool = false;
-bool bundleLibs(){ return bundleLibs_bool; }
-void bundleLibs(bool on){ bundleLibs_bool = on; }
+bool bundleFrameworks(){ return bundle_frameworks; }
+void bundleFrameworks(bool on){ bundle_frameworks = on; }
 
+std::string app_bundle;
+bool appBundleProvided(){ return !app_bundle.empty(); }
+std::string appBundle(){ return app_bundle; }
+void appBundle(std::string path)
+{
+    app_bundle = path;
+    // fix path if needed so it ends with '/'
+    if( app_bundle[ app_bundle.size()-1 ] != '/' ) app_bundle += "/";
 
-std::string dest_folder_str = "./libs/";
-std::string destFolder(){ return dest_folder_str; }
+    addFileToFix(app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle));
+
+    if(inside_path == inside_path_str) inside_path = inside_path_str_app;
+    if(dest_folder == dest_folder_str) dest_folder = dest_folder_str_app;
+    dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
+    char buffer[PATH_MAX];
+    if(realpath(dest_path.c_str(), buffer)) dest_path = buffer;
+    // fix path if needed so it ends with '/'
+    if( dest_path[ dest_path.size()-1 ] != '/' ) dest_path += "/";
+}
+
+std::string destFolder(){ return dest_path; }
 void destFolder(std::string path)
 {
-    dest_folder_str = path;
     // fix path if needed so it ends with '/'
-    if( dest_folder_str[ dest_folder_str.size()-1 ] != '/' ) dest_folder_str += "/";
+    if( path[ path.size()-1 ] != '/' ) path += "/";
+    dest_folder = path;
+    if(appBundleProvided())
+    {
+        char buffer[PATH_MAX];
+        std::string dest_path = app_bundle + "Contents/" + stripLSlash(path);
+        if(realpath(dest_path.c_str(), buffer)) dest_path = buffer;
+        // fix path if needed so it ends with '/'
+        if( dest_path[ dest_path.size()-1 ] != '/' ) dest_path += "/";
+        dest_folder = dest_path;
+    }
 }
+
+std::string executableFolder() { return app_bundle + "Contents/MacOS/"; }
 
 std::vector<std::string> files;
 void addFileToFix(std::string path){ files.push_back(path); }
 int fileToFixAmount(){ return files.size(); }
 std::string fileToFix(const int n){ return files[n]; }
 
-std::string inside_path_str = "@executable_path/../libs/";
 std::string inside_lib_path(){ return inside_path_str; }
 void inside_lib_path(std::string p)
 {
@@ -89,9 +130,10 @@ bool isPrefixIgnored(std::string prefix)
 
 bool isPrefixBundled(std::string prefix)
 {
-    if(prefix.find(".framework") != std::string::npos) return false;
+    if(!bundle_frameworks && prefix.find(".framework") != std::string::npos) return false;
     if(prefix.find("@executable_path") != std::string::npos) return false;
-    if(prefix.compare("/usr/lib/") == 0) return false;
+    if(prefix.find("/usr/lib/") == 0) return false;
+    if(prefix.find("/System/Library/") != std::string::npos) return false;
     if(isPrefixIgnored(prefix)) return false;
     
     return true;
