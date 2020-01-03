@@ -40,44 +40,6 @@ THE SOFTWARE.
 #include <vector>
 
 
-//the paths to search for dylibs, store it globally to parse the environment variables only once
-std::vector<std::string> paths;
-
-//initialize the dylib search paths
-void initSearchPaths(){
-    //Check the same paths the system would search for dylibs
-    std::string searchPaths;
-    char *dyldLibPath = std::getenv("DYLD_LIBRARY_PATH");
-    if( dyldLibPath!=0 )
-        searchPaths = dyldLibPath;
-    dyldLibPath = std::getenv("DYLD_FALLBACK_FRAMEWORK_PATH");
-    if (dyldLibPath != 0)
-    {
-        if (!searchPaths.empty() && searchPaths[ searchPaths.size()-1 ] != ':') searchPaths += ":";
-        searchPaths += dyldLibPath;
-    }
-    dyldLibPath = std::getenv("DYLD_FALLBACK_LIBRARY_PATH");
-    if (dyldLibPath!=0 )
-    {
-        if (!searchPaths.empty() && searchPaths[ searchPaths.size()-1 ] != ':') searchPaths += ":";
-        searchPaths += dyldLibPath;
-    }
-    if (!searchPaths.empty())
-    {
-        std::stringstream ss(searchPaths);
-        std::string item;
-        while(std::getline(ss, item, ':'))
-        {
-            if (item[ item.size()-1 ] != '/') item += "/";
-            paths.push_back(item);
-        }
-    }
-}
-
-// if some libs are missing prefixes, this will be set to true
-// more stuff will then be necessary to do
-bool missing_prefixes = false;
-
 Dependency::Dependency(std::string path, std::string dependent_file) : is_framework(false)
 {
     char original_file_buffer[PATH_MAX];
@@ -105,38 +67,39 @@ Dependency::Dependency(std::string path, std::string dependent_file) : is_framew
     prefix = filePrefix(original_file);
     filename = stripPrefix(original_file);
 
-    if( !prefix.empty() && prefix[ prefix.size()-1 ] != '/' ) prefix += "/";
+    if (!prefix.empty() && prefix[ prefix.size()-1 ] != '/') prefix += "/";
 
     // check if this dependency is in /usr/lib, /System/Library, or in ignored list
     if (!Settings::isPrefixBundled(prefix)) return;
 
     //check if the lib is in a known location
-    if( prefix.empty() || !fileExists( prefix+filename ) )
+    if (prefix.empty() || !fileExists(prefix+filename))
     {
         //the paths contains at least /usr/lib so if it is empty we have not initialized it
-        if( paths.empty() ) initSearchPaths();
+        size_t search_path_count = Settings::searchPathAmount();
+        if (search_path_count == 0) initSearchPaths();
         
         //check if file is contained in one of the paths
-        for( size_t i=0; i<paths.size(); ++i)
+        search_path_count = Settings::searchPathAmount();
+        for(size_t i=0; i<search_path_count; ++i)
         {
-            if (fileExists( paths[i]+filename ))
+            std::string search_path = Settings::searchPath(i);
+            if (fileExists(search_path+filename))
             {
-                std::cout << "FOUND " << filename << " in " << paths[i] << std::endl;
-                prefix = paths[i];
-                missing_prefixes = true; //the prefix was missing
+                std::cout << "FOUND " << filename << " in " << search_path << std::endl;
+                prefix = search_path;
+                Settings::missingPrefixes(true); //the prefix was missing
                 break;
             }
         }
     }
     
     //If the location is still unknown, ask the user for search path
-    if( !Settings::isPrefixIgnored(prefix)
-        && ( prefix.empty() || !fileExists( prefix+filename ) ) )
+    if ( !Settings::isPrefixIgnored(prefix) && ( prefix.empty() || !fileExists(prefix+filename) ) )
     {
         std::cerr << "\n/!\\ WARNING : Library " << filename << " has an incomplete name (location unknown)" << std::endl;
-        missing_prefixes = true;
-        
-        paths.push_back(getUserInputDirForFile(filename));
+        Settings::missingPrefixes(true);
+        Settings::addSearchPath(getUserInputDirForFile(filename));
     }
 
     new_name = filename;
@@ -149,18 +112,20 @@ void Dependency::print()
     
     const int symamount = symlinks.size();
     for(int n=0; n<symamount; n++)
-        std::cout << "     symlink --> " << symlinks[n].c_str() << std::endl;;
+    {
+        std::cout << "     symlink --> " << symlinks[n].c_str() << std::endl;
+    }
 }
 
 std::string Dependency::getInstallPath()
 {
     return Settings::destFolder() + new_name;
 }
+
 std::string Dependency::getInnerPath()
 {
     return Settings::inside_lib_path() + new_name;
 }
-
 
 void Dependency::addSymlink(std::string s)
 {
@@ -172,10 +137,11 @@ void Dependency::addSymlink(std::string s)
 // it returns true and merges both entries into one.
 bool Dependency::mergeIfSameAs(Dependency& dep2)
 {
-    if(dep2.getOriginalFileName().compare(filename) == 0)
+    if (dep2.getOriginalFileName().compare(filename) == 0)
     {
         const int samount = getSymlinkAmount();
-        for(int n=0; n<samount; n++) {
+        for(int n=0; n<samount; n++)
+        {
             dep2.addSymlink(getSymlink(n));
         }
         return true;
@@ -188,7 +154,7 @@ void Dependency::copyYourself()
     std::string original_path = getOriginalPath();
     std::string dest_path = getInstallPath();
 
-    if(is_framework)
+    if (is_framework)
     {
         original_path = getFrameworkRoot(original_path);
         dest_path = Settings::destFolder() + stripPrefix(original_path);
@@ -196,7 +162,7 @@ void Dependency::copyYourself()
 
     copyFile(original_path, dest_path);
     
-    if(is_framework)
+    if (is_framework)
     {
         std::string headers_path = dest_path + std::string("/Headers");
         char buffer[PATH_MAX];
@@ -221,7 +187,7 @@ void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
     }
 
     // FIXME - hackish
-    if(missing_prefixes)
+    if (Settings::missingPrefixes())
     {
         // for main lib file
         changeInstallName(file_to_fix, filename, getInnerPath());

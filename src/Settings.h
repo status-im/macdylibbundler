@@ -49,6 +49,9 @@ void bundleLibs(bool on);
 bool bundleFrameworks();
 void bundleFrameworks(bool on);
 
+bool quietOutput();
+void quietOutput(bool status);
+
 bool appBundleProvided();
 std::string appBundle();
 void appBundle(std::string path);
@@ -68,6 +71,13 @@ void inside_lib_path(std::string p);
 void addSearchPath(std::string path);
 int searchPathAmount();
 std::string searchPath(const int n);
+
+void addUserSearchPath(std::string path);
+size_t userSearchPathAmount();
+std::string userSearchPath(const int n);
+
+bool missingPrefixes();
+void missingPrefixes(bool status);
 
 }
 #endif

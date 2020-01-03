@@ -34,6 +34,7 @@ bool overwrite_dir = false;
 bool create_dir = false;
 bool bundle_libs = false;
 bool bundle_frameworks = false;
+bool quiet_output = false;
 
 std::string dest_folder_str = "./libs/";
 std::string dest_folder_str_app = "Frameworks/";
@@ -58,6 +59,9 @@ void bundleLibs(bool on){ bundle_libs = on; }
 bool bundleFrameworks(){ return bundle_frameworks; }
 void bundleFrameworks(bool on){ bundle_frameworks = on; }
 
+bool quietOutput() { return quiet_output; }
+void quietOutput(bool status) { quiet_output = status; }
+
 std::string app_bundle;
 bool appBundleProvided(){ return !app_bundle.empty(); }
 std::string appBundle(){ return app_bundle; }
@@ -65,7 +69,7 @@ void appBundle(std::string path)
 {
     app_bundle = path;
     // fix path if needed so it ends with '/'
-    if( app_bundle[ app_bundle.size()-1 ] != '/' ) app_bundle += "/";
+    if(app_bundle[ app_bundle.size()-1 ] != '/') app_bundle += "/";
 
     addFileToFix(app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle));
 
@@ -75,14 +79,14 @@ void appBundle(std::string path)
     char buffer[PATH_MAX];
     if(realpath(dest_path.c_str(), buffer)) dest_path = buffer;
     // fix path if needed so it ends with '/'
-    if( dest_path[ dest_path.size()-1 ] != '/' ) dest_path += "/";
+    if(dest_path[ dest_path.size()-1 ] != '/') dest_path += "/";
 }
 
 std::string destFolder(){ return dest_path; }
 void destFolder(std::string path)
 {
     // fix path if needed so it ends with '/'
-    if( path[ path.size()-1 ] != '/' ) path += "/";
+    if(path[ path.size()-1 ] != '/') path += "/";
     dest_folder = path;
     if(appBundleProvided())
     {
@@ -90,7 +94,7 @@ void destFolder(std::string path)
         std::string dest_path = app_bundle + "Contents/" + stripLSlash(path);
         if(realpath(dest_path.c_str(), buffer)) dest_path = buffer;
         // fix path if needed so it ends with '/'
-        if( dest_path[ dest_path.size()-1 ] != '/' ) dest_path += "/";
+        if(dest_path[ dest_path.size()-1 ] != '/') dest_path += "/";
         dest_folder = dest_path;
     }
 }
@@ -143,5 +147,16 @@ std::vector<std::string> searchPaths;
 void addSearchPath(std::string path){ searchPaths.push_back(path); }
 int searchPathAmount(){ return searchPaths.size(); }
 std::string searchPath(const int n){ return searchPaths[n]; }
+
+std::vector<std::string> userSearchPaths;
+void addUserSearchPath(std::string path){ userSearchPaths.push_back(path); }
+size_t userSearchPathAmount(){ return userSearchPaths.size(); }
+std::string userSearchPath(const int n){ return userSearchPaths[n]; }
+
+// if some libs are missing prefixes, this will be set to true
+// more stuff will then be necessary to do
+bool missing_prefixes = false;
+bool missingPrefixes(){ return missing_prefixes; }
+void missingPrefixes(bool status){ missing_prefixes = status; }
 
 }

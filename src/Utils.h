@@ -63,4 +63,7 @@ std::string bundleExecutableName(const std::string& app_bundle_path);
 void changeId(std::string binary_file, std::string new_id);
 void changeInstallName(std::string binary_file, std::string old_name, std::string new_name);
 
+// check the same paths the system would search for dylibs
+void initSearchPaths();
+
 #endif
