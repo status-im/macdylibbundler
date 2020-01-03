@@ -38,51 +38,61 @@ void changeLibPathsOnFile(std::string file_to_fix)
     }
 }
 
+// void collectRpaths(const std::string& filename)
+// {
+//     if (!fileExists(filename)) {
+//         std::cerr << "\n/!\\ WARNING: Can't collect rpaths for nonexistent file '" << filename << "'\n";
+//         return;
+//     }
+//     if (Settings::verboseOutput())
+//         std::cout << "  collecting rpaths for: " << filename << std::endl;
+
+//     std::string cmd = "otool -l " + filename;
+//     std::string output = systemOutput(cmd);
+
+//     if (output.find("can't open file") != std::string::npos
+//             || output.find("No such file") != std::string::npos
+//             || output.find("at least one file must be specified") != std::string::npos
+//             || output.size() < 1) {
+//         std::cerr << "\n\n/!\\ ERROR: Cannot find file " << filename << " to read its rpaths\n";
+//         exit(1);
+//     }
+
+//     std::vector<std::string> lc_lines;
+//     tokenize(output, "\n", &lc_lines);
+
+//     bool searching = false;
+//     for (const auto& line : lc_lines) {
+//         if (line.find("cmd LC_RPATH") != std::string::npos) {
+//             if (searching) {
+//                 std::cerr << "\n\n/!\\ ERROR: Failed to find path before next cmd" << std::endl;
+//                 exit(1);
+//             }
+//             searching = true;
+//         }
+//         else if (searching) {
+//             size_t start_pos = line.find("path ");
+//             size_t end_pos = line.find(" (");
+//             if (start_pos == std::string::npos || end_pos == std::string::npos)
+//                 continue;
+//             start_pos += 5; // to exclude "path "
+//             std::string rpath = line.substr(start_pos, end_pos - start_pos);
+//             rpaths.insert(rpath);
+//             rpaths_per_file[filename].push_back(rpath);
+//             searching = false;
+//             if (Settings::verboseOutput())
+//                 std::cout << "  rpath: " << rpath << std::endl;
+//         }
+//     }
+// }
+
 void collectRpaths(const std::string& filename)
 {
-    if (!fileExists(filename)) {
-        std::cerr << "\n/!\\ WARNING: Can't collect rpaths for nonexistent file '" << filename << "'\n";
-        return;
-    }
-    if (Settings::verboseOutput())
-        std::cout << "  collecting rpaths for: " << filename << std::endl;
-
-    std::string cmd = "otool -l " + filename;
-    std::string output = systemOutput(cmd);
-
-    if (output.find("can't open file") != std::string::npos
-            || output.find("No such file") != std::string::npos
-            || output.find("at least one file must be specified") != std::string::npos
-            || output.size() < 1) {
-        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << filename << " to read its rpaths\n";
-        exit(1);
-    }
-
-    std::vector<std::string> lc_lines;
-    tokenize(output, "\n", &lc_lines);
-
-    bool searching = false;
-    for (const auto& line : lc_lines) {
-        if (line.find("cmd LC_RPATH") != std::string::npos) {
-            if (searching) {
-                std::cerr << "\n\n/!\\ ERROR: Failed to find path before next cmd" << std::endl;
-                exit(1);
-            }
-            searching = true;
-        }
-        else if (searching) {
-            size_t start_pos = line.find("path ");
-            size_t end_pos = line.find(" (");
-            if (start_pos == std::string::npos || end_pos == std::string::npos)
-                continue;
-            start_pos += 5; // to exclude "path "
-            std::string rpath = line.substr(start_pos, end_pos - start_pos);
-            rpaths.insert(rpath);
-            rpaths_per_file[filename].push_back(rpath);
-            searching = false;
-            if (Settings::verboseOutput())
-                std::cout << "  rpath: " << rpath << std::endl;
-        }
+    std::vector<std::string> lines;
+    parseLoadCommands(filename, std::string("LC_RPATH"), std::string("path"), lines);
+    for (const auto& line : lines) {
+        rpaths.insert(line);
+        rpaths_per_file[filename].push_back(line);
     }
 }
 
@@ -299,42 +309,47 @@ void parseLoadCommands(const std::string& file, std::string cmd, std::string val
     }
 }
 
+// void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
+// {
+//     std::string cmd = "otool -l " + dependent_file;
+//     std::string output = systemOutput(cmd);
+
+//     if (output.find("can't open file") != std::string::npos
+//             || output.find("No such file") != std::string::npos
+//             || output.find("at least one file must be specified") != std::string::npos
+//             || output.size() < 1) {
+//         std::cerr << "\n\n/!\\ ERROR: Cannot find file " << dependent_file << " to read its dependencies\n";
+//         exit(1);
+//     }
+
+//     std::vector<std::string> raw_lines;
+//     tokenize(output, "\n", &raw_lines);
+
+//     bool searching = false;
+//     for (const auto& line : raw_lines) {
+//         if (line.find("cmd LC_LOAD_DYLIB") != std::string::npos) {
+//             if (searching) {
+//                 std::cerr << "\n\n/!\\ ERROR: Failed to find name before next cmd" << std::endl;
+//                 exit(1);
+//             }
+//             searching = true;
+//         }
+//         else if (searching) {
+//             size_t found = line.find("name ");
+//             size_t start_pos = line.find("name ");
+//             size_t end_pos = line.find(" (");
+//             if (start_pos == std::string::npos || end_pos == std::string::npos)
+//                 continue;
+//             start_pos += 5; // to exclude "name "
+//             lines.push_back('\t' + line.substr(start_pos, end_pos - start_pos));
+//             searching = false;
+//         }
+//     }
+// }
+
 void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
 {
-    std::string cmd = "otool -l " + dependent_file;
-    std::string output = systemOutput(cmd);
-
-    if (output.find("can't open file") != std::string::npos
-            || output.find("No such file") != std::string::npos
-            || output.find("at least one file must be specified") != std::string::npos
-            || output.size() < 1) {
-        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << dependent_file << " to read its dependencies\n";
-        exit(1);
-    }
-
-    std::vector<std::string> raw_lines;
-    tokenize(output, "\n", &raw_lines);
-
-    bool searching = false;
-    for (const auto& line : raw_lines) {
-        if (line.find("cmd LC_LOAD_DYLIB") != std::string::npos) {
-            if (searching) {
-                std::cerr << "\n\n/!\\ ERROR: Failed to find name before next cmd" << std::endl;
-                exit(1);
-            }
-            searching = true;
-        }
-        else if (searching) {
-            size_t found = line.find("name ");
-            size_t start_pos = line.find("name ");
-            size_t end_pos = line.find(" (");
-            if (start_pos == std::string::npos || end_pos == std::string::npos)
-                continue;
-            start_pos += 5; // to exclude "name "
-            lines.push_back('\t' + line.substr(start_pos, end_pos - start_pos));
-            searching = false;
-        }
-    }
+    parseLoadCommands(dependent_file, std::string("LC_LOAD_DYLIB"), std::string("name"), lines);
 }
 
 void collectDependenciesForFile(const std::string& file, std::vector<std::string>& lines)
