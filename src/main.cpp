@@ -12,7 +12,7 @@ const std::string VERSION = "2.0.0 (2019-12-29)";
 
 void showHelp()
 {
-    std::cout << "Usage: dylibbundler [options] -x file" << std::endl;
+    std::cout << "Usage: dylibbundler -a file.app [options]" << std::endl;
     std::cout << "Options:" << std::endl;
     std::cout << "  -a,  --app                   Application bundle to make self-contained" << std::endl;
     std::cout << "  -x,  --fix-file              Copy file's dependencies to app bundle and fix internal names and rpaths" << std::endl;
@@ -61,7 +61,7 @@ int main(int argc, const char* argv[])
         }
         else if (strcmp(argv[i],"-s") == 0 || strcmp(argv[i],"--search-path") == 0) {
             i++;
-            Settings::addSearchPath(argv[i]);
+            Settings::addUserSearchPath(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-i") == 0 || strcmp(argv[i],"--ignore") == 0) {
@@ -124,7 +124,7 @@ int main(int argc, const char* argv[])
     const size_t files_count = Settings::filesToFixCount();
 
     for (size_t j=0; j<files_count; ++j)
-        collectDependencies(Settings::fileToFix(j));
+        collectDependenciesForFile(Settings::fileToFix(j));
 
     collectSubDependencies();
     doneWithDeps_go();

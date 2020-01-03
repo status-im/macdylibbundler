@@ -12,6 +12,8 @@ std::string stripPrefix(std::string in);
 std::string getFrameworkRoot(std::string in);
 std::string getFrameworkPath(std::string in);
 
+std::string stripLSlash(std::string in);
+
 // trim from end (in place)
 void rtrim_in_place(std::string& s);
 // trim from end (copying)
@@ -27,6 +29,8 @@ void tokenize(const std::string& str, const char* delimiters, std::vector<std::s
 std::vector<std::string> lsDir(std::string path);
 bool fileExists(std::string filename);
 bool isRpath(const std::string& path);
+
+std::string bundleExecutableName(const std::string& app_bundle_path);
 
 void changeId(std::string binary_file, std::string new_id);
 void changeInstallName(std::string binary_file, std::string old_name, std::string new_name);

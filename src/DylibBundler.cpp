@@ -28,7 +28,7 @@ bool qt_plugins_called = false;
 void changeLibPathsOnFile(std::string file_to_fix)
 {
     if (deps_collected.find(file_to_fix) == deps_collected.end())
-        collectDependencies(file_to_fix);
+        collectDependenciesForFile(file_to_fix);
 
     std::cout << "* Fixing dependencies on " << file_to_fix << "\n";
 
@@ -47,37 +47,41 @@ void collectRpaths(const std::string& filename)
     if (Settings::verboseOutput())
         std::cout << "  collecting rpaths for: " << filename << std::endl;
 
-    size_t pos = 0;
-    bool read_rpath = false;
-
     std::string cmd = "otool -l " + filename;
     std::string output = systemOutput(cmd);
-    std::vector<std::string> lc_lines;
 
+    if (output.find("can't open file") != std::string::npos
+            || output.find("No such file") != std::string::npos
+            || output.find("at least one file must be specified") != std::string::npos
+            || output.size() < 1) {
+        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << filename << " to read its rpaths\n";
+        exit(1);
+    }
+
+    std::vector<std::string> lc_lines;
     tokenize(output, "\n", &lc_lines);
 
-    while (pos < lc_lines.size()) {
-        std::string line = lc_lines[pos];
-        pos++;
-        if (read_rpath) {
+    bool searching = false;
+    for (const auto& line : lc_lines) {
+        if (line.find("cmd LC_RPATH") != std::string::npos) {
+            if (searching) {
+                std::cerr << "\n\n/!\\ ERROR: Failed to find path before next cmd" << std::endl;
+                exit(1);
+            }
+            searching = true;
+        }
+        else if (searching) {
             size_t start_pos = line.find("path ");
             size_t end_pos = line.find(" (");
-            if (start_pos == std::string::npos || end_pos == std::string::npos) {
-                std::cerr << "\n/!\\ WARNING: Unexpected LC_RPATH format\n";
+            if (start_pos == std::string::npos || end_pos == std::string::npos)
                 continue;
-            }
             start_pos += 5; // to exclude "path "
             std::string rpath = line.substr(start_pos, end_pos - start_pos);
             rpaths.insert(rpath);
             rpaths_per_file[filename].push_back(rpath);
-            read_rpath = false;
+            searching = false;
             if (Settings::verboseOutput())
                 std::cout << "  rpath: " << rpath << std::endl;
-            continue;
-        }
-        if (line.find("LC_RPATH") != std::string::npos) {
-            read_rpath = true;
-            pos++;
         }
     }
 }
@@ -104,8 +108,10 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
         char buffer[PATH_MAX];
         std::string file_prefix = filePrefix(dependent_file);
         if (path.find("@executable_path") != std::string::npos || path.find("@loader_path") != std::string::npos) {
-            if (path.find("@executable_path") != std::string::npos)
-                path = std::regex_replace(path, std::regex("@executable_path/"), Settings::executableFolder());
+            if (path.find("@executable_path") != std::string::npos) {
+                if (Settings::appBundleProvided())
+                    path = std::regex_replace(path, std::regex("@executable_path/"), Settings::executableFolder());
+            }
             if (dependent_file != rpath_file) {
                 if (path.find("@loader_path") != std::string::npos)
                     path = std::regex_replace(path, std::regex("@loader_path/"), file_prefix);
@@ -119,16 +125,18 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
             }
         }
         else if (path.find("@rpath") != std::string::npos) {
-            std::string pathE = std::regex_replace(path, std::regex("@rpath/"), Settings::executableFolder());
-            std::string pathL = std::regex_replace(path, std::regex("@rpath/"), file_prefix);
-            if (Settings::verboseOutput())
-                std::cout << "    path to search: " << pathE << std::endl;
-            if (realpath(pathE.c_str(), buffer)) {
-                fullpath = buffer;
-                rpath_to_fullpath[rpath_file] = fullpath;
-                return true;
+            if (Settings::appBundleProvided()) {
+                std::string pathE = std::regex_replace(path, std::regex("@rpath/"), Settings::executableFolder());
+                if (Settings::verboseOutput())
+                    std::cout << "    path to search: " << pathE << std::endl;
+                if (realpath(pathE.c_str(), buffer)) {
+                    fullpath = buffer;
+                    rpath_to_fullpath[rpath_file] = fullpath;
+                    return true;
+                }
             }
             if (dependent_file != rpath_file) {
+                std::string pathL = std::regex_replace(path, std::regex("@rpath/"), file_prefix);
                 if (Settings::verboseOutput())
                     std::cout << "    path to search: " << pathL << std::endl;
                 if (realpath(pathL.c_str(), buffer)) {
@@ -159,17 +167,31 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
     }
 
     if (fullpath.empty()) {
-        if (Settings::verboseOutput())
-            std::cout << "  ** rpath fullpath: not found" << std::endl;
-        if (!Settings::quietOutput())
-            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
-        fullpath = getUserInputDirForFile(suffix) + suffix;
-        if (Settings::quietOutput() && fullpath.empty())
-            std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
-        if (realpath(fullpath.c_str(), fullpath_buffer))
-            fullpath = fullpath_buffer;
-    }
-    else if (Settings::verboseOutput()) {
+        size_t search_path_count = Settings::searchPathCount();
+        for (size_t i=0; i<search_path_count; ++i) {
+            std::string search_path = Settings::searchPath(i);
+            if (fileExists(search_path+suffix)) {
+                if (Settings::verboseOutput())
+                    std::cout << "FOUND " + suffix + " in " + search_path + "\n";
+                fullpath = search_path + suffix;
+                break;
+            }
+        }
+        if (fullpath.empty()) {
+            if (Settings::verboseOutput())
+                std::cout << "  ** rpath fullpath: not found" << std::endl;
+            if (!Settings::quietOutput())
+                std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
+            fullpath = getUserInputDirForFile(suffix) + suffix;
+            if (Settings::quietOutput() && fullpath.empty())
+                std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
+            if (realpath(fullpath.c_str(), fullpath_buffer))
+                fullpath = fullpath_buffer;
+        }
+        else if (Settings::verboseOutput()) {
+            std::cout << "  ** rpath fullpath: " << fullpath << std::endl;
+        }
+    } else if (Settings::verboseOutput()) {
         std::cout << "  ** rpath fullpath: " << fullpath << std::endl;
     }
 
@@ -233,7 +255,50 @@ void addDependency(std::string path, std::string dependent_file)
         deps_per_file[dependent_file].push_back(dep);
 }
 
-// Fill |lines| with dependencies of given |filename|
+void parseLoadCommands(const std::string& file, std::string cmd, std::string value, std::vector<std::string>& lines)
+{
+    std::string command = "otool -l " + file;
+    std::string output = systemOutput(command);
+
+    if (output.find("can't open file") != std::string::npos
+            || output.find("No such file") != std::string::npos
+            || output.find("at least one file must be specified") != std::string::npos
+            || output.size() < 1) {
+        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << file << " to read its load commands\n";
+        exit(1);
+    }
+
+    std::vector<std::string> raw_lines;
+    tokenize(output, "\n", &raw_lines);
+
+    bool searching = false;
+    for (const auto& line : raw_lines) {
+        if (line.find("cmd " + cmd) != std::string::npos) {
+            if (searching) {
+                std::cerr << "\n\n/!\\ ERROR: Failed to find " << value << " before next cmd" << std::endl;
+                exit(1);
+            }
+            searching = true;
+        }
+        else if (searching) {
+            size_t start_pos = line.find(value + " ");
+            size_t end_pos = std::string::npos;
+            if (start_pos == std::string::npos)
+                continue;
+            size_t start = start_pos + value.size() + 1; // exclude data label "|value| "
+            size_t end = std::string::npos;
+            if (value == "name" || value == "path") {
+                end_pos = line.find(" (");
+                if (end_pos == std::string::npos)
+                    continue;
+                end = end_pos - start;
+            }
+            lines.push_back('\t' + line.substr(start, end));
+            searching = false;
+        }
+    }
+}
+
 void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
 {
     std::string cmd = "otool -l " + dependent_file;
@@ -241,6 +306,7 @@ void collectDependencies(const std::string& dependent_file, std::vector<std::str
 
     if (output.find("can't open file") != std::string::npos
             || output.find("No such file") != std::string::npos
+            || output.find("at least one file must be specified") != std::string::npos
             || output.size() < 1) {
         std::cerr << "\n\n/!\\ ERROR: Cannot find file " << dependent_file << " to read its dependencies\n";
         exit(1);
@@ -260,18 +326,28 @@ void collectDependencies(const std::string& dependent_file, std::vector<std::str
         }
         else if (searching) {
             size_t found = line.find("name ");
-            if (found != std::string::npos) {
-                lines.push_back('\t' + line.substr(found+5, std::string::npos));
-                searching = false;
-            }
+            size_t start_pos = line.find("name ");
+            size_t end_pos = line.find(" (");
+            if (start_pos == std::string::npos || end_pos == std::string::npos)
+                continue;
+            start_pos += 5; // to exclude "name "
+            lines.push_back('\t' + line.substr(start_pos, end_pos - start_pos));
+            searching = false;
         }
     }
 }
 
-void collectDependencies(const std::string& dependent_file)
+void collectDependenciesForFile(const std::string& file, std::vector<std::string>& lines)
+{
+    if (deps_collected.find(file) == deps_collected.end())
+        collectDependencies(file, lines);
+}
+
+void collectDependenciesForFile(const std::string& dependent_file)
 {
     std::vector<std::string> lines;
-    collectDependencies(dependent_file, lines);
+    collectDependenciesForFile(dependent_file, lines);
+    collectRpathsForFilename(dependent_file);
 
     for (size_t i=0; i<lines.size(); ++i) {
         // lines containing path begin with a tab
@@ -281,16 +357,13 @@ void collectDependencies(const std::string& dependent_file)
             continue;
         // trim useless info, keep only library path
         std::string dep_path = lines[i].substr(1, lines[i].rfind(" (") - 1);
-        if (isRpath(dep_path))
-            collectRpathsForFilename(dependent_file);
-
+        // if (isRpath(dep_path))
+        //     collectRpathsForFilename(searchFilenameInRpaths(dep_path, dependent_file));
         addDependency(dep_path, dependent_file);
     }
-
     deps_collected[dependent_file] = true;
 }
 
-// recursively collect each dependency's dependencies
 void collectSubDependencies()
 {
     size_t dep_counter = deps.size();
@@ -312,7 +385,7 @@ void collectSubDependencies()
 
             collectRpathsForFilename(original_path);
             std::vector<std::string> lines;
-            collectDependencies(original_path, lines);
+            collectDependenciesForFile(original_path, lines);
 
             for (size_t i=0; i<lines.size(); ++i) {
                 // lines containing path begin with a tab
@@ -323,10 +396,8 @@ void collectSubDependencies()
                     continue;
                 // trim useless info, keep only library name
                 std::string dep_path = lines[i].substr(1, lines[i].rfind(" (") - 1);
-                if (isRpath(dep_path)) {
-                    std::string full_path = searchFilenameInRpaths(dep_path, original_path);
-                    collectRpathsForFilename(full_path);
-                }
+                // if (isRpath(dep_path))
+                //     collectRpathsForFilename(searchFilenameInRpaths(dep_path, original_path));
                 addDependency(dep_path, original_path);
             }
         }
@@ -354,7 +425,6 @@ void doneWithDeps_go()
     }
 
     const size_t deps_size = deps.size();
-
     for (size_t n=0; n<deps_size; ++n) {
         deps[n].print();
     }
@@ -452,7 +522,7 @@ void copyQtPlugins()
             std::vector<std::string> files = lsDir(dest + plugin+"/");
             for (const auto& file : files) {
                 Settings::addFileToFix(dest + plugin+"/"+file);
-                collectDependencies(dest + plugin+"/"+file);
+                collectDependenciesForFile(dest + plugin+"/"+file);
                 changeId(dest + plugin+"/"+file, "@rpath/" + plugin+"/"+file);
             }
         }
@@ -466,7 +536,7 @@ void copyQtPlugins()
     mkdir(dest + "platforms");
     copyFile(qt_plugins_prefix + "platforms/libqcocoa.dylib", dest + "platforms");
     Settings::addFileToFix(dest + "platforms/libqcocoa.dylib");
-    collectDependencies(dest + "platforms/libqcocoa.dylib");
+    collectDependenciesForFile(dest + "platforms/libqcocoa.dylib");
 
     fixupPlugin("printsupport");
     fixupPlugin("styles");

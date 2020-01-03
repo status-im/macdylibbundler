@@ -10,6 +10,7 @@ bool isPrefixBundled(std::string prefix);
 bool isPrefixIgnored(std::string prefix);
 void ignorePrefix(std::string prefix);
 
+bool appBundleProvided();
 std::string appBundle();
 void appBundle(std::string path);
 
@@ -32,6 +33,10 @@ void insideLibPath(std::string p);
 void addSearchPath(std::string path);
 size_t searchPathCount();
 std::string searchPath(int n);
+
+void addUserSearchPath(std::string path);
+size_t userSearchPathCount();
+std::string userSearchPath(int n);
 
 bool canCreateDir();
 void canCreateDir(bool permission);

@@ -23,24 +23,21 @@ std::string inside_path = inside_path_str;
 std::string app_bundle;
 bool appBundleProvided() { return !app_bundle.empty(); }
 std::string appBundle() { return app_bundle; }
-void appBundle(std::string path) {
+void appBundle(std::string path)
+{
     app_bundle = path;
     if (app_bundle[app_bundle.size()-1] != '/')
         app_bundle += "/"; // fix path if needed so it ends with '/'
 
-    std::string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' ";
-    cmd += app_bundle + "Contents/Info.plist";
-    std::string bundle_executable = systemOutput(cmd);
-
-    addFileToFix(app_bundle + "Contents/MacOS/" + bundle_executable);
+    addFileToFix(app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle));
 
     if (inside_path == inside_path_str)
         inside_path = inside_path_str_app;
     if (dest_folder == dest_folder_str)
         dest_folder = dest_folder_str_app;
 
-    dest_path = app_bundle + "Contents/" + dest_folder;
     char buffer[PATH_MAX];
+    dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
     if (realpath(dest_path.c_str(), buffer))
         dest_path = buffer;
     if (dest_path[dest_path.size()-1] != '/')
@@ -55,12 +52,11 @@ void destFolder(std::string path)
     dest_folder = path;
     if (appBundleProvided()) {
         char buffer[PATH_MAX];
-        std::string dest_path = app_bundle + "Contents/" + path;
+        std::string dest_path = app_bundle + "Contents/" + stripLSlash(path);
         if (realpath(dest_path.c_str(), buffer))
             dest_path = buffer;
         if (dest_path[dest_path.size()-1] != '/')
             dest_path += "/";
-        dest_folder = dest_path;
     }
 }
 
@@ -119,6 +115,11 @@ std::vector<std::string> searchPaths;
 void addSearchPath(std::string path) { searchPaths.push_back(path); }
 size_t searchPathCount() { return searchPaths.size(); }
 std::string searchPath(const int n) { return searchPaths[n]; }
+
+std::vector<std::string> userSearchPaths;
+void addUserSearchPath(std::string path) { userSearchPaths.push_back(path); }
+size_t userSearchPathCount() { return userSearchPaths.size(); }
+std::string userSearchPath(const int n) { return userSearchPaths[n]; }
 
 bool canCreateDir() { return create_dir; }
 void canCreateDir(bool permission) { create_dir = permission; }

@@ -32,6 +32,13 @@ std::string getFrameworkPath(std::string in)
     return in.substr(in.rfind(".framework/")+11);
 }
 
+std::string stripLSlash(std::string in)
+{
+    if (in[0] == '.' && in[1] == '/')
+        in = in.substr(2, in.size());
+    return in;
+}
+
 // trim from end (in place)
 void rtrim_in_place(std::string& s)
 {
@@ -141,6 +148,13 @@ bool isRpath(const std::string& path)
     return path.find("@rpath") == 0 || path.find("@loader_path") == 0;
 }
 
+std::string bundleExecutableName(const std::string& app_bundle_path)
+{
+    std::string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "
+                    + app_bundle_path + "Contents/Info.plist";
+    return systemOutput(cmd);
+}
+
 void changeId(std::string binary_file, std::string new_id)
 {
     std::string command = std::string("install_name_tool -id ") + new_id + " " + binary_file;
@@ -247,9 +261,9 @@ void createDestDir()
 
 std::string getUserInputDirForFile(const std::string& filename)
 {
-    const size_t searchPathCount = Settings::searchPathCount();
+    const size_t searchPathCount = Settings::userSearchPathCount();
     for (size_t n=0; n<searchPathCount; ++n) {
-        auto searchPath = Settings::searchPath(n);
+        auto searchPath = Settings::userSearchPath(n);
         if (!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
             searchPath += "/";
         if (!fileExists(searchPath+filename)) {
@@ -287,6 +301,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         else {
             std::cerr << (prefix+filename) << " was found\n"
                       << "/!\\ WARNINGS: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
+            Settings::addUserSearchPath(prefix);
             return prefix;
         }
     }
@@ -294,7 +309,6 @@ std::string getUserInputDirForFile(const std::string& filename)
 
 void initSearchPaths()
 {
-    // check the same paths the system would search for dylibs
     std::string searchPaths;
     char *dyldLibPath = std::getenv("DYLD_LIBRARY_PATH");
     if (dyldLibPath != 0)
