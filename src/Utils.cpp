@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 
 #include <stdio.h>
 #include <sys/stat.h>
@@ -287,6 +288,36 @@ std::string getUserInputDirForFile(const std::string& filename)
             std::cerr << (prefix+filename) << " was found\n"
                       << "/!\\ WARNINGS: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
             return prefix;
+        }
+    }
+}
+
+void initSearchPaths()
+{
+    // check the same paths the system would search for dylibs
+    std::string searchPaths;
+    char *dyldLibPath = std::getenv("DYLD_LIBRARY_PATH");
+    if (dyldLibPath != 0)
+        searchPaths = dyldLibPath;
+    dyldLibPath = std::getenv("DYLD_FALLBACK_FRAMEWORK_PATH");
+    if (dyldLibPath != 0) {
+        if (!searchPaths.empty() && searchPaths[searchPaths.size()-1] != ':')
+            searchPaths += ":";
+        searchPaths += dyldLibPath;
+    }
+    dyldLibPath = std::getenv("DYLD_FALLBACK_LIBRARY_PATH");
+    if (dyldLibPath != 0) {
+        if (!searchPaths.empty() && searchPaths[searchPaths.size()-1] != ':')
+            searchPaths += ":";
+        searchPaths += dyldLibPath;
+    }
+    if (!searchPaths.empty()) {
+        std::stringstream ss(searchPaths);
+        std::string item;
+        while (std::getline(ss, item, ':')) {
+            if (item[item.size()-1] != '/')
+                item += "/";
+            Settings::addSearchPath(item);
         }
     }
 }

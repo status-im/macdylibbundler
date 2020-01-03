@@ -234,7 +234,7 @@ void addDependency(std::string path, std::string dependent_file)
 }
 
 // Fill |lines| with dependencies of given |filename|
-void collectDependencies(std::string dependent_file, std::vector<std::string>& lines)
+void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
 {
     std::string cmd = "otool -l " + dependent_file;
     std::string output = systemOutput(cmd);
@@ -268,18 +268,16 @@ void collectDependencies(std::string dependent_file, std::vector<std::string>& l
     }
 }
 
-void collectDependencies(std::string dependent_file)
+void collectDependencies(const std::string& dependent_file)
 {
     std::vector<std::string> lines;
     collectDependencies(dependent_file, lines);
 
     for (size_t i=0; i<lines.size(); ++i) {
-        if (!Settings::bundleFrameworks()) {
-            if (lines[i].find(".framework") != std::string::npos)
-                continue;
-        }
         // lines containing path begin with a tab
         if (lines[i][0] != '\t')
+            continue;
+        if (!Settings::isPrefixBundled(lines[i]))
             continue;
         // trim useless info, keep only library path
         std::string dep_path = lines[i].substr(1, lines[i].rfind(" (") - 1);
@@ -313,17 +311,15 @@ void collectSubDependencies()
                 original_path = searchFilenameInRpaths(original_path);
 
             collectRpathsForFilename(original_path);
-
             std::vector<std::string> lines;
             collectDependencies(original_path, lines);
 
             for (size_t i=0; i<lines.size(); ++i) {
-                if (!Settings::bundleFrameworks()) {
-                    if (lines[i].find(".framework") != std::string::npos)
-                        continue;
-                }
                 // lines containing path begin with a tab
                 if (lines[i][0] != '\t')
+                    continue;
+                // skip system/ignored prefixes
+                if (!Settings::isPrefixBundled(lines[i]))
                     continue;
                 // trim useless info, keep only library name
                 std::string dep_path = lines[i].substr(1, lines[i].rfind(" (") - 1);

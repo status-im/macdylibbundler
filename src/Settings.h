@@ -54,6 +54,9 @@ void quietOutput(bool status);
 bool verboseOutput();
 void verboseOutput(bool status);
 
+bool missingPrefixes();
+void missingPrefixes(bool status);
+
 } // namespace Settings
 
 #endif

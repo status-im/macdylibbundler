@@ -14,7 +14,8 @@ std::string searchFilenameInRpaths(const std::string& rpath_file);
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix);
 
 void addDependency(std::string path, std::string dependent_file);
-void collectDependencies(std::string dependent_file);
+void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines);
+void collectDependencies(const std::string& dependent_file);
 void collectSubDependencies();
 
 void doneWithDeps_go();

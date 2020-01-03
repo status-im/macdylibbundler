@@ -11,18 +11,22 @@ bool verbose_output = false;
 bool bundle_libs = true;
 bool bundle_frameworks = false;
 
-std::string dest_folder_str = "Frameworks";
-std::string inside_path_str = "@executable_path/../Frameworks/";
+std::string dest_folder_str = "./libs/";
+std::string dest_folder_str_app = "./Frameworks/";
+std::string dest_folder = dest_folder_str;
+std::string dest_path = dest_folder;
+
+std::string inside_path_str = "@executable_path/../libs/";
+std::string inside_path_str_app = "@executable_path/../Frameworks/";
+std::string inside_path = inside_path_str;
 
 std::string app_bundle;
-std::string dest_folder;
-
+bool appBundleProvided() { return !app_bundle.empty(); }
 std::string appBundle() { return app_bundle; }
 void appBundle(std::string path) {
     app_bundle = path;
-    // fix path if needed so it ends with '/'
     if (app_bundle[app_bundle.size()-1] != '/')
-        app_bundle += "/";
+        app_bundle += "/"; // fix path if needed so it ends with '/'
 
     std::string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' ";
     cmd += app_bundle + "Contents/Info.plist";
@@ -30,60 +34,63 @@ void appBundle(std::string path) {
 
     addFileToFix(app_bundle + "Contents/MacOS/" + bundle_executable);
 
-    // fix path if needed so it ends with '/'
-    if (dest_folder_str[dest_folder_str.size()-1] != '/')
-        dest_folder_str += "/";
-    dest_folder = app_bundle + "Contents/" + dest_folder_str;
+    if (inside_path == inside_path_str)
+        inside_path = inside_path_str_app;
+    if (dest_folder == dest_folder_str)
+        dest_folder = dest_folder_str_app;
+
+    dest_path = app_bundle + "Contents/" + dest_folder;
+    char buffer[PATH_MAX];
+    if (realpath(dest_path.c_str(), buffer))
+        dest_path = buffer;
+    if (dest_path[dest_path.size()-1] != '/')
+        dest_path += "/";
 }
 
-std::string destFolder() { return dest_folder; }
+std::string destFolder() { return dest_path; }
 void destFolder(std::string path)
 {
-    dest_folder_str = path;
-    // fix path if needed so it ends with '/'
-    if (dest_folder_str[dest_folder_str.size()-1] != '/')
-        dest_folder_str += "/";
-    dest_folder = dest_folder_str;
-    if (!app_bundle.empty())
-        dest_folder = app_bundle + "Contents/" + dest_folder_str;
+    if (path[path.size()-1] != '/')
+        path += "/";
+    dest_folder = path;
+    if (appBundleProvided()) {
+        char buffer[PATH_MAX];
+        std::string dest_path = app_bundle + "Contents/" + path;
+        if (realpath(dest_path.c_str(), buffer))
+            dest_path = buffer;
+        if (dest_path[dest_path.size()-1] != '/')
+            dest_path += "/";
+        dest_folder = dest_path;
+    }
 }
 
 std::string executableFolder() { return app_bundle + "Contents/MacOS/"; }
-
 std::string frameworksFolder() { return app_bundle + "Contents/Frameworks/"; }
-
 std::string pluginsFolder() { return app_bundle + "Contents/PlugIns/"; }
-
 std::string resourcesFolder() { return app_bundle + "Contents/Resources/"; }
 
 std::vector<std::string> files;
-
 void addFileToFix(std::string path) { files.push_back(path); }
-
 std::string fileToFix(const int n) { return files[n]; }
-
 std::vector<std::string> filesToFix() { return files; }
-
 size_t filesToFixCount() { return files.size(); }
 
-std::string insideLibPath() { return inside_path_str; }
+std::string insideLibPath() { return inside_path; }
 void insideLibPath(std::string p)
 {
-    inside_path_str = p;
+    inside_path = p;
     // fix path if needed so it ends with '/'
-    if (inside_path_str[inside_path_str.size()-1] != '/')
-        inside_path_str += "/";
+    if (inside_path[inside_path.size()-1] != '/')
+        inside_path += "/";
 }
 
 std::vector<std::string> prefixes_to_ignore;
-
 void ignorePrefix(std::string prefix)
 {
     if (prefix[prefix.size()-1] != '/')
         prefix += "/";
     prefixes_to_ignore.push_back(prefix);
 }
-
 bool isPrefixIgnored(std::string prefix)
 {
     for (size_t n=0; n<prefixes_to_ignore.size(); n++) {
@@ -133,5 +140,10 @@ void quietOutput(bool status) { quiet_output = status; }
 
 bool verboseOutput() { return verbose_output; }
 void verboseOutput(bool status) { verbose_output = status; }
+
+// if some libs are missing prefixes, then more stuff will be necessary to do
+bool missing_prefixes = false;
+bool missingPrefixes() { return missing_prefixes; }
+void missingPrefixes(bool status) { missing_prefixes = status; }
 
 } // namespace Settings

@@ -39,4 +39,7 @@ bool mkdir(std::string path);
 void createDestDir();
 std::string getUserInputDirForFile(const std::string& filename);
 
+// check the same paths the system would search for dylibs
+void initSearchPaths();
+
 #endif
