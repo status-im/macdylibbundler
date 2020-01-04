@@ -1,6 +1,22 @@
 #include "Dependency.h"
 
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
 #include <iostream>
+#include <locale>
+#include <sstream>
+#include <vector>
+
+// #include <stdlib.h>
+#include <sys/param.h>
+// #include <sys/stat.h>
+#ifndef __clang__
+#include <sys/types.h>
+#endif
+#include <unistd.h>
 
 #include "Settings.h"
 #include "Utils.h"

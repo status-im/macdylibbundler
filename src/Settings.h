@@ -6,6 +6,10 @@
 #include <string>
 #include <vector>
 
+#ifndef __clang__
+#include <sys/types.h>
+#endif
+
 namespace Settings {
 
 bool isPrefixBundled(std::string prefix);
@@ -33,12 +37,12 @@ std::string insideLibPath();
 void insideLibPath(std::string p);
 
 void addSearchPath(std::string path);
-size_t searchPathCount();
 std::string searchPath(int n);
+size_t searchPathCount();
 
 void addUserSearchPath(std::string path);
-size_t userSearchPathCount();
 std::string userSearchPath(int n);
+size_t userSearchPathCount();
 
 bool canCreateDir();
 void canCreateDir(bool permission);

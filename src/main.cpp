@@ -1,9 +1,18 @@
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
+#include <vector>
+
+#include <string.h>
+#ifndef __clang__
+#include <sys/types.h>
+#endif
 
 #include "DylibBundler.h"
 #include "Settings.h"
 
-const std::string VERSION = "2.0.0 (2019-12-29)";
+const std::string VERSION = "2.1.0 (2020-01-04)";
 
 void showHelp()
 {
@@ -114,7 +123,7 @@ int main(int argc, const char* argv[])
         exit(0);
     }
 
-    std::cout << "* Collecting dependencies...\n";
+    std::cout << "Collecting dependencies...\n";
 
     const size_t files_count = Settings::filesToFixCount();
 

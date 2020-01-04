@@ -1,10 +1,18 @@
 #include "Utils.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <regex>
 #include <sstream>
 
+// #include <stdio.h>
+#include <sys/param.h>
+// #include <sys/stat.h>
+#ifndef __clang__
+#include <sys/types.h>
+#endif
 #include <unistd.h>
 
 #include "Settings.h"
@@ -172,9 +180,8 @@ void copyFile(const std::string& from, const std::string& to)
         exit(1);
     }
 
-    std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
-
     // copy file/directory
+    std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
     std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" ") + to;
     if (from != to && systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << std::endl;
@@ -208,7 +215,7 @@ void deleteFile(const std::string& path)
 bool mkdir(const std::string& path)
 {
     if (Settings::verboseOutput())
-        std::cout << "* Creating directory " << path << "\n\n";
+        std::cout << "Creating directory " << path << std::endl;
     std::string command = std::string("mkdir -p ") + path;
     if (systemp(command) != 0) {
         std::cerr << "\n/!\\ ERROR: An error occured while creating " << path << std::endl;
@@ -221,12 +228,12 @@ void createDestDir()
 {
     std::string dest_folder = Settings::destFolder();
     if (Settings::verboseOutput())
-        std::cout << "* Checking output directory " << dest_folder << "\n";
+        std::cout << "Checking output directory " << dest_folder << "\n";
 
     bool dest_exists = fileExists(dest_folder);
 
     if (dest_exists && Settings::canOverwriteDir()) {
-        std::cout << "* Erasing old output directory " << dest_folder << "\n";
+        std::cout << "Erasing old output directory " << dest_folder << "\n";
         std::string command = std::string("rm -r ") + dest_folder;
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite destination folder\n";
@@ -237,7 +244,7 @@ void createDestDir()
 
     if (!dest_exists) {
         if (Settings::canCreateDir()) {
-            std::cout << "* Creating output directory " << dest_folder << "\n\n";
+            std::cout << "Creating output directory " << dest_folder << "\n\n";
             if (!mkdir(dest_folder)) {
                 std::cerr << "\n/!\\ ERROR: An error occured while creating " << dest_folder << std::endl;
                 exit(1);

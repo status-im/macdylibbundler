@@ -1,6 +1,9 @@
 #include "Settings.h"
 
+#include <cstdlib>
 #include <map>
+
+#include <sys/param.h>
 
 #include "Utils.h"
 
@@ -56,17 +59,14 @@ void appBundle(std::string path)
 std::string destFolder() { return dest_path; }
 void destFolder(std::string path)
 {
-    if (path[path.size()-1] != '/')
-        path += "/";
-    dest_folder = path;
-    if (appBundleProvided()) {
-        char buffer[PATH_MAX];
+    dest_path = path;
+    if (appBundleProvided())
         dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
-        if (realpath(dest_path.c_str(), buffer))
-            dest_path = buffer;
-        if (dest_path[dest_path.size()-1] != '/')
-            dest_path += "/";
-    }
+    char buffer[PATH_MAX];
+    if (realpath(dest_path.c_str(), buffer))
+        dest_path = buffer;
+    if (dest_path[dest_path.size()-1] != '/')
+        dest_path += "/";
 }
 
 std::string executableFolder() { return app_bundle + "Contents/MacOS/"; }
@@ -127,13 +127,13 @@ bool isPrefixBundled(std::string prefix)
 
 std::vector<std::string> searchPaths;
 void addSearchPath(std::string path) { searchPaths.push_back(path); }
-size_t searchPathCount() { return searchPaths.size(); }
 std::string searchPath(const int n) { return searchPaths[n]; }
+size_t searchPathCount() { return searchPaths.size(); }
 
 std::vector<std::string> userSearchPaths;
 void addUserSearchPath(std::string path) { userSearchPaths.push_back(path); }
-size_t userSearchPathCount() { return userSearchPaths.size(); }
 std::string userSearchPath(const int n) { return userSearchPaths[n]; }
+size_t userSearchPathCount() { return userSearchPaths.size(); }
 
 bool canCreateDir() { return create_dir; }
 void canCreateDir(bool permission) { create_dir = permission; }

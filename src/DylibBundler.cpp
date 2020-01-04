@@ -1,10 +1,17 @@
 #include "DylibBundler.h"
 
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <map>
+#include <numeric>
 #include <set>
+
 #ifdef __linux
 #include <linux/limits.h>
+#endif
+#ifndef __clang__
+#include <sys/types.h>
 #endif
 
 #include "Dependency.h"
@@ -282,7 +289,7 @@ void copyQtPlugins()
     fixupPlugin("imageformats");
     fixupPlugin("iconengines");
     if (!qtSvgFound)
-        systemp("rm -f " + dest + "imageformats/libqsvg.dylib");
+        systemp(std::string("rm -f ") + dest + "imageformats/libqsvg.dylib");
     if (qtGuiFound) {
         fixupPlugin("platforminputcontexts");
         fixupPlugin("virtualkeyboard");
