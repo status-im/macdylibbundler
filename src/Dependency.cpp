@@ -109,17 +109,16 @@ std::string Dependency::getInnerPath()
 
 void Dependency::addSymlink(std::string s)
 {
-    // calling std::find on this vector is not as slow as an extra invocation of install_name_tool
     if (std::find(symlinks.begin(), symlinks.end(), s) == symlinks.end())
         symlinks.push_back(s);
 }
 
-// compare given Dependency with this one. if both refer to the same file, merge into one entry.
 bool Dependency::mergeIfSameAs(Dependency& dep2)
 {
     if (dep2.getOriginalFileName().compare(filename) == 0) {
-        for (size_t n=0; n<symlinks.size(); ++n)
+        for (size_t n=0; n<symlinks.size(); ++n) {
             dep2.addSymlink(symlinks[n]);
+        }
         return true;
     }
     return false;
@@ -168,24 +167,18 @@ void Dependency::copyYourself()
         deleteFile(dest_path + "/*.prl");
     }
 
-    // fix the lib's inner name
     changeId(getInstallPath(), "@rpath/"+new_name);
 }
 
 void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
 {
-    // for main lib file
     changeInstallName(file_to_fix, getOriginalPath(), getInnerPath());
-    // for symlinks
     for (size_t n=0; n<symlinks.size(); ++n) {
         changeInstallName(file_to_fix, symlinks[n], getInnerPath());
     }
 
-    // TODO: revise
     if (Settings::missingPrefixes()) {
-        // for main lib file
         changeInstallName(file_to_fix, filename, getInnerPath());
-        // for symlinks
         for (size_t n=0; n<symlinks.size(); ++n) {
             changeInstallName(file_to_fix, symlinks[n], getInnerPath());
         }

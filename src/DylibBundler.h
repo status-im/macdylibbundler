@@ -8,8 +8,8 @@
 
 void addDependency(std::string path, std::string dependent_file);
 
-std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file);
-std::string searchFilenameInRpaths(const std::string& rpath_file);
+// std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file);
+// std::string searchFilenameInRpaths(const std::string& rpath_file);
 
 // fill |lines| with dependencies of |dependent_file|
 void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines);

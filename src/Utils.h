@@ -47,6 +47,7 @@ std::string getUserInputDirForFile(const std::string& filename);
 void parseLoadCommands(const std::string& file, const std::string& cmd, const std::string& value, std::vector<std::string>& lines);
 
 std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file);
+std::string searchFilenameInRpaths(const std::string& rpath_file);
 
 // check the same paths the system would search for dylibs
 void initSearchPaths();

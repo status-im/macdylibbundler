@@ -50,11 +50,6 @@ void addDependency(std::string path, std::string dependent_file)
         deps_per_file[dependent_file].push_back(dep);
 }
 
-std::string searchFilenameInRpaths(const std::string& rpath_file)
-{
-    return searchFilenameInRpaths(rpath_file, rpath_file);
-}
-
 void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
 {
     parseLoadCommands(dependent_file, std::string("LC_LOAD_DYLIB"), std::string("name"), lines);

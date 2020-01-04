@@ -73,7 +73,7 @@ std::string systemOutput(const std::string& cmd)
         }
     }
     catch (...) {
-        std::cerr << "An error occured while executing command " << cmd << "\n";
+        std::cerr << "An error occured while executing command " << cmd << std::endl;
         pclose(command_output);
         return "";
     }
@@ -127,15 +127,12 @@ bool fileExists(const std::string& filename)
     if (access(filename.c_str(), F_OK) != -1) {
         return true;
     }
-    else {
-        std::string delims = " \f\n\r\t\v";
-        std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims)+1);
-        std::string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
-        if (access(ftrimmed.c_str(), F_OK) != -1)
-            return true;
-        else
-            return false;
-    }
+    std::string delims = " \f\n\r\t\v";
+    std::string rtrimmed = filename.substr(0, filename.find_last_not_of(delims)+1);
+    std::string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
+    if (access(ftrimmed.c_str(), F_OK) != -1)
+        return true;
+    return false;
 }
 
 bool isRpath(const std::string& path)
@@ -145,8 +142,7 @@ bool isRpath(const std::string& path)
 
 std::string bundleExecutableName(const std::string& app_bundle_path)
 {
-    std::string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "
-                    + app_bundle_path + "Contents/Info.plist";
+    std::string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' " + app_bundle_path + "Contents/Info.plist";
     return rtrim(systemOutput(cmd));
 }
 
@@ -154,7 +150,7 @@ void changeId(const std::string& binary_file, const std::string& new_id)
 {
     std::string command = std::string("install_name_tool -id ") + new_id + " " + binary_file;
     if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << "\n";
+        std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << std::endl;
         exit(1);
     }
 }
@@ -163,7 +159,7 @@ void changeInstallName(const std::string& binary_file, const std::string& old_na
 {
     std::string command = std::string("install_name_tool -change ") + old_name + " " + new_name + " " + binary_file;
     if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << "\n";
+        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << std::endl;
         exit(1);
     }
 }
@@ -181,14 +177,14 @@ void copyFile(const std::string& from, const std::string& to)
     // copy file/directory
     std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" ") + to;
     if (from != to && systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << "\n";
+        std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << std::endl;
         exit(1);
     }
 
     // give file/directory write permission
     std::string command2 = std::string("chmod -R +w ") + to;
     if (systemp(command2) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << "\n";
+        std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << std::endl;
         exit(1);
     }
 }
@@ -198,7 +194,7 @@ void deleteFile(const std::string& path, bool overwrite)
     std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
     std::string command = std::string("rm -r ") + overwrite_permission + path;
     if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to delete " << path << "\n";
+        std::cerr << "\n\nError: An error occured while trying to delete " << path << std::endl;
         exit(1);
     }
 }
@@ -215,7 +211,7 @@ bool mkdir(const std::string& path)
         std::cout << "* Creating directory " << path << "\n\n";
     std::string command = std::string("mkdir -p ") + path;
     if (systemp(command) != 0) {
-        std::cerr << "\n/!\\ ERROR: An error occured while creating " + path + "\n";
+        std::cerr << "\n/!\\ ERROR: An error occured while creating " << path << std::endl;
         return false;
     }
     return true;
@@ -233,7 +229,7 @@ void createDestDir()
         std::cout << "* Erasing old output directory " << dest_folder << "\n";
         std::string command = std::string("rm -r ") + dest_folder;
         if (systemp(command) != 0) {
-            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite dest folder\n";
+            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite destination folder\n";
             exit(1);
         }
         dest_exists = false;
@@ -243,12 +239,12 @@ void createDestDir()
         if (Settings::canCreateDir()) {
             std::cout << "* Creating output directory " << dest_folder << "\n\n";
             if (!mkdir(dest_folder)) {
-                std::cerr << "\n/!\\ ERROR: An error occured while creating " + dest_folder + "\n";
+                std::cerr << "\n/!\\ ERROR: An error occured while creating " << dest_folder << std::endl;
                 exit(1);
             }
         }
         else {
-            std::cerr << "\n\n/!\\ ERROR: Dest folder does not exist. Create it or pass the appropriate flag for automatic dest dir creation\n";
+            std::cerr << "\n\n/!\\ ERROR: Destination folder does not exist. Create it or pass the '-cd' or '-od' flag\n";
             exit(1);
         }
     }
@@ -264,7 +260,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         if (fileExists(searchPath+filename)) {
             if (!Settings::quietOutput()) {
                 std::cerr << (searchPath+filename) << " was found\n"
-                          << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << "\n";
+                          << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
             }
             return searchPath;
         }
@@ -292,7 +288,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         }
         else {
             std::cerr << (prefix+filename) << " was found\n"
-                      << "/!\\ WARNINGS: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
+                      << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
             Settings::addUserSearchPath(prefix);
             return prefix;
         }
@@ -321,7 +317,7 @@ void parseLoadCommands(const std::string& file, const std::string& cmd, const st
     for (const auto& line : raw_lines) {
         if (line.find(cmd_line) != std::string::npos) {
             if (searching) {
-                std::cerr << "\n\n/!\\ ERROR: Failed to find " << value << " before next cmd" << std::endl;
+                std::cerr << "\n\n/!\\ ERROR: Failed to find " << value << " before next cmd\n";
                 exit(1);
             }
             searching = true;
@@ -425,7 +421,7 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
             std::string search_path = Settings::searchPath(i);
             if (fileExists(search_path+suffix)) {
                 if (Settings::verboseOutput())
-                    std::cout << "FOUND " + suffix + " in " + search_path + "\n";
+                    std::cout << "FOUND " << suffix << " in " << search_path << std::endl;
                 fullpath = search_path + suffix;
                 break;
             }
@@ -450,6 +446,11 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
     }
 
     return fullpath;
+}
+
+std::string searchFilenameInRpaths(const std::string& rpath_file)
+{
+    return searchFilenameInRpaths(rpath_file, rpath_file);
 }
 
 void initSearchPaths()

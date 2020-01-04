@@ -75,7 +75,13 @@ std::string pluginsFolder() { return app_bundle + "Contents/PlugIns/"; }
 std::string resourcesFolder() { return app_bundle + "Contents/Resources/"; }
 
 std::vector<std::string> files;
-void addFileToFix(std::string path) { files.push_back(path); }
+void addFileToFix(std::string path)
+{
+    char buffer[PATH_MAX];
+    if (realpath(path.c_str(), buffer))
+        path = buffer;
+    files.push_back(path);
+}
 std::string fileToFix(const int n) { return files[n]; }
 std::vector<std::string> filesToFix() { return files; }
 size_t filesToFixCount() { return files.size(); }
