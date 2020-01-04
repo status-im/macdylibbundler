@@ -65,7 +65,7 @@ void showHelp()
     std::cout << "-od, --overwrite-dir (totally overwrite output directory if it already exists. implies --create-dir)" << std::endl;
     std::cout << "-cd, --create-dir (creates output directory if necessary)" << std::endl;
     std::cout << "-i,  --ignore <location to ignore> (will ignore libraries in this directory)" << std::endl;
-    std::cout << "-q,  --quiet                 Less verbose output" << std::endl;
+    std::cout << "-q,  --quiet (less verbose output)" << std::endl;
     std::cout << "-h,  --help" << std::endl;
 }
 
@@ -162,7 +162,7 @@ int main (int argc, char * const argv[])
         exit(0);
     }
     
-    std::cout << "* Collecting dependencies"; fflush(stdout);
+    std::cout << "Collecting dependencies..." << std::endl;
     
     const int amount = Settings::fileToFixAmount();
     for(int n=0; n<amount; n++)

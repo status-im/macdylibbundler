@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "Settings.h"
 #include <cstdlib>
 #include <unistd.h>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <cstdio>
@@ -76,49 +77,54 @@ string rtrim(string s)
 void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
 {
     vector<string>& tokens = *vectorarg;
+    
     string delimiters(delim);
     
     // skip delimiters at beginning.
-    string::size_type lastPos = str.find_first_not_of(delimiters, 0);
+    string::size_type lastPos = str.find_first_not_of( delimiters , 0);
+    
     // find first "non-delimiter".
     string::size_type pos = str.find_first_of(delimiters, lastPos);
     
-    while(string::npos != pos || string::npos != lastPos)
+    while (string::npos != pos || string::npos != lastPos)
     {
         // found a token, add it to the vector.
         tokens.push_back(str.substr(lastPos, pos - lastPos));
+        
         // skip delimiters.  Note the "not_of"
         lastPos = str.find_first_not_of(delimiters, pos);
+        
         // find next "non-delimiter"
         pos = str.find_first_of(delimiters, lastPos);
     }
+    
 }
 
 bool fileExists(string filename)
 {
-    if (access(filename.c_str(), F_OK) != -1) return true; // file exists
+    if (access( filename.c_str(), F_OK ) != -1) return true; // file exists
 
     string delims = " \f\n\r\t\v";
     string rtrimmed = filename.substr(0, filename.find_last_not_of(delims)+1);
     string ftrimmed = rtrimmed.substr(rtrimmed.find_first_not_of(delims));
 
-    if (access(ftrimmed.c_str(), F_OK) != -1) return true;
+    if (access( ftrimmed.c_str(), F_OK ) != -1) return true;
     return false; // file doesn't exist
 }
 
 void copyFile(string from, string to)
 {
     bool overwrite = Settings::canOverwriteFiles();
-    if (!overwrite)
+    if(!overwrite)
     {
-        if (fileExists(to))
+        if(fileExists( to ))
         {
             cerr << "\n\nError : File " << to.c_str() << " already exists. Remove it or enable overwriting." << endl;
             exit(1);
         }
     }
 
-    // copy file/directory
+    // copy file to local directory
     string overwrite_permission = string(overwrite ? "-f " : "-n ");
     string command = string("cp -R ") + overwrite_permission + from + string(" ") + to;
     if (from != to && systemp(command) != 0)
@@ -127,9 +133,9 @@ void copyFile(string from, string to)
         exit(1);
     }
     
-    // give file/directory write permission
+    // give it write permission
     string command2 = string("chmod -R +w ") + to;
-    if (systemp(command2) != 0)
+    if( systemp( command2 ) != 0 )
     {
         cerr << "\n\nError : An error occured while trying to set write permissions on file " << to << endl;
         exit(1);
@@ -140,7 +146,7 @@ void deleteFile(string path, bool overwrite)
 {
     string overwrite_permission = string(overwrite ? "-f " : " ");
     string command = string("rm -r ") + overwrite_permission + path;
-    if (systemp(command) != 0)
+    if( systemp( command ) != 0 )
     {
         cerr << "\n\nError: An error occured while trying to delete " << path << endl;
         exit(1);
@@ -153,90 +159,118 @@ void deleteFile(string path)
     deleteFile(path, overwrite);
 }
 
-string system_get_output(string cmd)
+std::vector<std::string> lsDir(const std::string& path)
 {
-    FILE* command_output;
+    std::string cmd = "ls " + path;
+    std::string output = system_get_output(cmd);
+    std::vector<std::string> files;
+    tokenize(output, "\n", &files);
+    return files;
+}
+
+bool mkdir(const std::string& path)
+{
+    cout << "Creating directory " << path << std::endl;
+    string command = string("mkdir -p ") + path;
+    if( systemp( command ) != 0 )
+    {
+        cerr << "\n/!\\ ERROR: An error occured while creating " << path << endl;
+        return false;
+    }
+    return true;
+}
+
+std::string system_get_output(std::string cmd)
+{
+    FILE * command_output;
     char output[128];
     int amount_read = 1;
-    string full_output;
+    
+    std::string full_output;
+    
     try
     {
         command_output = popen(cmd.c_str(), "r");
-        if (command_output == NULL) throw;
-
+        if(command_output == NULL) throw;
+        
         while(amount_read > 0)
         {
             amount_read = fread(output, 1, 127, command_output);
-            if (amount_read <= 0) break;
-            output[amount_read] = '\0';
-            full_output += output;
+            if(amount_read <= 0) break;
+            else
+            {
+                output[amount_read] = '\0';
+                full_output += output;
+            }
         }
     }
     catch(...)
     {
-        cerr << "An error occured while executing command " << cmd.c_str() << endl;
+        std::cerr << "An error occured while executing command " << cmd.c_str() << std::endl;
         pclose(command_output);
         return "";
     }
-
+    
     int return_value = pclose(command_output);
-    if (return_value != 0) return "";
+    if(return_value != 0) return "";
+    
     return full_output;
 }
 
-int systemp(string& cmd)
+int systemp(const std::string& cmd)
 {
-    cout << "    " << cmd.c_str() << endl;
+    if(!Settings::quietOutput()) std::cout << "    " << cmd << "\n";
     return system(cmd.c_str());
 }
 
-string getUserInputDirForFile(const string& filename)
+std::string getUserInputDirForFile(const std::string& filename)
 {
     const int searchPathAmount = Settings::searchPathAmount();
     for(int n=0; n<searchPathAmount; n++)
     {
-        string searchPath = Settings::searchPath(n);
-        if (!searchPath.empty() && searchPath[ searchPath.size()-1 ] != '/') searchPath += "/";
+        auto searchPath = Settings::searchPath(n);
+        if( !searchPath.empty() && searchPath[ searchPath.size()-1 ] != '/' ) searchPath += "/";
 
-        if (!fileExists(searchPath+filename)) continue;
-        cerr << (searchPath+filename) << " was found. /!\\ DYLIBBUNDLER MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Manually check the executable with 'otool -L'" << endl;
+        if( !fileExists( searchPath+filename ) ) continue;
+        std::cerr << (searchPath+filename) << " was found. /!\\ DYLIBBUNDLER MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Manually check the executable with 'otool -L'" << std::endl;
         return searchPath;
     }
 
-    while(true)
+    while (true)
     {
-        cout << "Please specify the directory where this library is located (or enter 'quit' to abort): ";  fflush(stdout);
+        std::cout << "Please specify the directory where this library is located (or enter 'quit' to abort): ";  fflush(stdout);
 
-        string prefix;
-        cin >> prefix;
-        cout << endl;
+        std::string prefix;
+        std::cin >> prefix;
+        std::cout << std::endl;
 
-        if (prefix.compare("quit") == 0) exit(1);
+        if(prefix.compare("quit")==0) exit(1);
         if (!prefix.empty() && prefix[ prefix.size()-1 ] != '/') prefix += "/";
 
-        if (!fileExists(prefix+filename))
+        if( !fileExists( prefix+filename ) )
         {
-            cerr << (prefix+filename) << " does not exist. Try again" << endl;
+            std::cerr << (prefix+filename) << " does not exist. Try again" << std::endl;
             continue;
         }
-
-        cerr << (prefix+filename) << " was found. /!\\ DYLIBBUNDLER MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Manually check the executable with 'otool -L'" << endl;
-        Settings::addSearchPath(prefix);
-        return prefix;
+        else
+        {
+            std::cerr << (prefix+filename) << " was found. /!\\ DYLIBBUNDLER MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Manually check the executable with 'otool -L'" << std::endl;
+            Settings::addSearchPath(prefix);
+            return prefix;
+        }
     }
 }
 
 string bundleExecutableName(const string& app_bundle_path)
 {
-    string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "
-                    + app_bundle_path + "Contents/Info.plist";
-    return system_get_output(cmd);
+    string cmd = "/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' " + app_bundle_path + "Contents/Info.plist";
+    return rtrim(system_get_output(cmd));
 }
 
 void changeId(string binary_file, string new_id)
 {
     string command = string("install_name_tool -id ") + new_id + " " + binary_file;
-    if (systemp(command) != 0)
+    if( systemp( command ) != 0 )
     {
         cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << endl;
         exit(1);
@@ -246,7 +280,7 @@ void changeId(string binary_file, string new_id)
 void changeInstallName(string binary_file, string old_name, string new_name)
 {
     string command = string("install_name_tool -change ") + old_name + " " + new_name + " " + binary_file;
-    if (systemp(command) != 0)
+    if( systemp( command ) != 0 )
     {
         cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << endl;
         exit(1);
@@ -257,27 +291,39 @@ void initSearchPaths()
 {
     string searchPaths;
     char* dyldLibPath = getenv("DYLD_LIBRARY_PATH");
-    if (dyldLibPath != 0) searchPaths = dyldLibPath;
+    if(dyldLibPath != 0) searchPaths = dyldLibPath;
     dyldLibPath = getenv("DYLD_FALLBACK_FRAMEWORK_PATH");
-    if (dyldLibPath != 0)
+    if(dyldLibPath != 0)
     {
-        if (!searchPaths.empty() && searchPaths[ searchPaths.size()-1 ] != ':') searchPaths += ":";
+        if( !searchPaths.empty() && searchPaths[ searchPaths.size()-1 ] != ':' ) searchPaths += ":";
         searchPaths += dyldLibPath;
     }
     dyldLibPath = getenv("DYLD_FALLBACK_LIBRARY_PATH");
-    if (dyldLibPath!=0)
+    if(dyldLibPath != 0)
     {
-        if (!searchPaths.empty() && searchPaths[ searchPaths.size()-1 ] != ':') searchPaths += ":";
+        if( !searchPaths.empty() && searchPaths[ searchPaths.size()-1 ] != ':' ) searchPaths += ":";
         searchPaths += dyldLibPath;
     }
-    if (!searchPaths.empty())
+    if(!searchPaths.empty())
     {
         stringstream ss(searchPaths);
         string item;
         while(getline(ss, item, ':'))
         {
-            if (item[ item.size()-1 ] != '/') item += "/";
+            if( item[ item.size()-1 ] != '/' ) item += "/";
             Settings::addSearchPath(item);
         }
     }
+}
+
+void createQtConf(std::string directory)
+{
+    std::string contents = "[Paths]\n"
+                           "Plugins = PlugIns\n"
+                           "Imports = Resources/qml\n"
+                           "Qml2Imports = Resources/qml\n";
+    if( directory[ directory.size()-1 ] != '/' ) directory += "/";
+    std::ofstream out(directory + "qt.conf");
+    out << contents;
+    out.close();
 }

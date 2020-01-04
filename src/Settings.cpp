@@ -37,7 +37,7 @@ bool bundle_frameworks = false;
 bool quiet_output = false;
 
 std::string dest_folder_str = "./libs/";
-std::string dest_folder_str_app = "Frameworks/";
+std::string dest_folder_str_app = "./Frameworks/";
 std::string dest_folder = dest_folder_str;
 std::string dest_path = dest_folder;
 
@@ -59,8 +59,8 @@ void bundleLibs(bool on){ bundle_libs = on; }
 bool bundleFrameworks(){ return bundle_frameworks; }
 void bundleFrameworks(bool on){ bundle_frameworks = on; }
 
-bool quietOutput() { return quiet_output; }
-void quietOutput(bool status) { quiet_output = status; }
+bool quietOutput(){ return quiet_output; }
+void quietOutput(bool status){ quiet_output = status; }
 
 std::string app_bundle;
 bool appBundleProvided(){ return !app_bundle.empty(); }
@@ -68,50 +68,61 @@ std::string appBundle(){ return app_bundle; }
 void appBundle(std::string path)
 {
     app_bundle = path;
-    // fix path if needed so it ends with '/'
-    if(app_bundle[ app_bundle.size()-1 ] != '/') app_bundle += "/";
-
-    addFileToFix(app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle));
-
-    if(inside_path == inside_path_str) inside_path = inside_path_str_app;
-    if(dest_folder == dest_folder_str) dest_folder = dest_folder_str_app;
-    dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
     char buffer[PATH_MAX];
-    if(realpath(dest_path.c_str(), buffer)) dest_path = buffer;
+    if(realpath(app_bundle.c_str(), buffer))
+        app_bundle = buffer;
     // fix path if needed so it ends with '/'
-    if(dest_path[ dest_path.size()-1 ] != '/') dest_path += "/";
+    if( app_bundle[ app_bundle.size()-1 ] != '/' )
+        app_bundle += "/";
+
+    std::string bundle_executable_path = app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle);
+    if(realpath(bundle_executable_path.c_str(), buffer))
+        bundle_executable_path = buffer;
+    addFileToFix(bundle_executable_path);
+
+    if(inside_path == inside_path_str)
+        inside_path = inside_path_str_app;
+    if(dest_folder == dest_folder_str)
+        dest_folder = dest_folder_str_app;
+
+    dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
+    if(realpath(dest_path.c_str(), buffer))
+        dest_path = buffer;
+    if( dest_path[ dest_path.size()-1 ] != '/' )
+        dest_path += "/";
 }
 
 std::string destFolder(){ return dest_path; }
 void destFolder(std::string path)
 {
-    // fix path if needed so it ends with '/'
-    if(path[ path.size()-1 ] != '/') path += "/";
-    dest_folder = path;
-    if(appBundleProvided())
-    {
-        char buffer[PATH_MAX];
-        std::string dest_path = app_bundle + "Contents/" + stripLSlash(path);
-        if(realpath(dest_path.c_str(), buffer)) dest_path = buffer;
-        // fix path if needed so it ends with '/'
-        if(dest_path[ dest_path.size()-1 ] != '/') dest_path += "/";
-        dest_folder = dest_path;
-    }
+    dest_path = path;
+    if(appBundleProvided()) dest_path = app_bundle + "Contents/" + stripLSlash(path);
+    char buffer[PATH_MAX];
+    if(realpath(dest_path.c_str(), buffer)) dest_path = buffer;
+    if( dest_path[ dest_path.size()-1 ] != '/' ) dest_path += "/";
 }
 
 std::string executableFolder() { return app_bundle + "Contents/MacOS/"; }
+std::string frameworksFolder() { return app_bundle + "Contents/Frameworks/"; }
+std::string pluginsFolder() { return app_bundle + "Contents/PlugIns/"; }
+std::string resourcesFolder() { return app_bundle + "Contents/Resources/"; }
 
 std::vector<std::string> files;
-void addFileToFix(std::string path){ files.push_back(path); }
+void addFileToFix(std::string path)
+{
+    char buffer[PATH_MAX];
+    if(realpath(path.c_str(), buffer)) path = buffer;
+    files.push_back(path);
+}
 int fileToFixAmount(){ return files.size(); }
 std::string fileToFix(const int n){ return files[n]; }
 
-std::string inside_lib_path(){ return inside_path_str; }
+std::string inside_lib_path(){ return inside_path; }
 void inside_lib_path(std::string p)
 {
-    inside_path_str = p;
+    inside_path = p;
     // fix path if needed so it ends with '/'
-    if( inside_path_str[ inside_path_str.size()-1 ] != '/' ) inside_path_str += "/";
+    if( inside_path[ inside_path.size()-1 ] != '/' ) inside_path += "/";
 }
 
 std::vector<std::string> prefixes_to_ignore;

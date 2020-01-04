@@ -49,7 +49,9 @@ public:
     std::string getOriginalPath() const{ return prefix+filename; }
     std::string getInstallPath();
     std::string getInnerPath();
-        
+
+    bool isFramework(){ return is_framework; }
+
     void addSymlink(std::string s);
     int getSymlinkAmount() const{ return symlinks.size(); }
 

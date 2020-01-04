@@ -40,9 +40,11 @@ THE SOFTWARE.
 std::vector<Dependency> deps;
 std::map<std::string, std::vector<Dependency> > deps_per_file;
 std::map<std::string, bool> deps_collected;
+std::set<std::string> frameworks;
 std::set<std::string> rpaths;
 std::map<std::string, std::vector<std::string> > rpaths_per_file;
 std::map<std::string, std::string> rpath_to_fullpath;
+bool qt_plugins_called = false;
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
@@ -50,7 +52,8 @@ void changeLibPathsOnFile(std::string file_to_fix)
     {
         collectDependencies(file_to_fix);
     }
-    std::cout << "\n* Fixing dependencies on " << file_to_fix.c_str() << std::endl;
+    if (!Settings::quietOutput()) std::cout << "\n";
+    std::cout << "* Fixing dependencies on " << file_to_fix.c_str() << std::endl;
     
     const int dep_amount = deps_per_file[file_to_fix].size();
     for(int n=0; n<dep_amount; n++)
@@ -206,11 +209,21 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
                 break;
             }
         }
-        std::cerr << "\n/!\\ WARNING : can't get path for '" << rpath_file << "'\n";
-        fullpath = getUserInputDirForFile(suffix) + suffix;
-        if (realpath(fullpath.c_str(), fullpath_buffer))
+        if (fullpath.empty())
         {
-            fullpath = fullpath_buffer;
+            if (!Settings::quietOutput())
+            {
+                std::cerr << "\n/!\\ WARNING : can't get path for '" << rpath_file << "'\n";
+            }
+            fullpath = getUserInputDirForFile(suffix) + suffix;
+            if (Settings::quietOutput() && fullpath.empty())
+            {
+                std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
+            }
+            if (realpath(fullpath.c_str(), fullpath_buffer))
+            {
+                fullpath = fullpath_buffer;
+            }
         }
     }
 
@@ -231,11 +244,11 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
         rpaths_to_fix = found->second;
     }
 
-    for(size_t i=0; i < rpaths_to_fix.size(); ++i)
+    for (size_t i=0; i < rpaths_to_fix.size(); ++i)
     {
         std::string command = std::string("install_name_tool -rpath ") +
                 rpaths_to_fix[i] + " " + Settings::inside_lib_path() + " " + file_to_fix;
-        if (systemp(command) != 0)
+        if ( systemp(command) != 0)
         {
             std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
             exit(1);
@@ -252,22 +265,23 @@ void addDependency(std::string path, std::string filename)
     const int dep_amount = deps.size();
     for(int n=0; n<dep_amount; n++)
     {
-        if (dep.mergeIfSameAs(deps[n])) in_deps = true;
+        if(dep.mergeIfSameAs(deps[n])) in_deps = true;
     }
     
     // check if this library was already added to |deps_per_file[filename]| to avoid duplicates
-    std::vector<Dependency> deps_in_file = deps_per_file[filename];
     bool in_deps_per_file = false;
-    const int deps_in_file_amount = deps_in_file.size();
+    const int deps_in_file_amount = deps_per_file[filename].size();
     for(int n=0; n<deps_in_file_amount; n++)
     {
-        if (dep.mergeIfSameAs(deps_in_file[n])) in_deps_per_file = true;
+        if(dep.mergeIfSameAs(deps_per_file[filename][n])) in_deps_per_file = true;
     }
 
-    if (!Settings::isPrefixBundled(dep.getPrefix())) return;
+    if(!Settings::isPrefixBundled(dep.getPrefix())) return;
+
+    if(!in_deps && dep.isFramework()) frameworks.insert(dep.getOriginalPath());
     
-    if (!in_deps) deps.push_back(dep);
-    if (!in_deps_per_file) deps_per_file[filename].push_back(dep);
+    if(!in_deps) deps.push_back(dep);
+    if(!in_deps_per_file) deps_per_file[filename].push_back(dep);
 }
 
 /*
@@ -316,23 +330,14 @@ void collectDependencies(std::string filename)
 {
     std::vector<std::string> lines;
     collectDependencies(filename, lines);
-       
-    std::cout << "."; fflush(stdout);
-    
+
     const int line_amount = lines.size();
     for(int n=0; n<line_amount; n++)
     {
-        std::cout << "."; fflush(stdout);
-        if (lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
-        if (!Settings::isPrefixBundled(lines[n])) continue; // skip system/ignored prefixes
-
+        if(lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
+        if(!Settings::isPrefixBundled(lines[n])) continue; // skip system/ignored prefixes
         // trim useless info, keep only library name
         std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-        if (isRpath(dep_path))
-        {
-            collectRpathsForFilename(filename);
-        }
-
         addDependency(dep_path, filename);
     }
     deps_collected[filename] = true;
@@ -340,7 +345,7 @@ void collectDependencies(std::string filename)
 
 void collectSubDependencies()
 {
-    // print status to user
+    size_t dep_counter = deps.size();
     int dep_amount = deps.size();
     
     // recursively collect each dependencie's dependencies
@@ -349,51 +354,48 @@ void collectSubDependencies()
         dep_amount = deps.size();
         for(int n=0; n<dep_amount; n++)
         {
-            std::cout << "."; fflush(stdout);
             std::vector<std::string> lines;
             std::string original_path = deps[n].getOriginalPath();
-            std::string full_path = original_path;
             if (isRpath(original_path))
             {
-                full_path = searchFilenameInRpaths(original_path);
+                original_path = searchFilenameInRpaths(original_path);
             }
-            collectRpathsForFilename(full_path);
-            collectDependencies(full_path, lines);
+            collectRpathsForFilename(original_path);
+            collectDependencies(original_path, lines);
             
             const int line_amount = lines.size();
             for(int n=0; n<line_amount; n++)
             {
                 if (lines[n][0] != '\t') continue; // only lines beginning with a tab interest us
                 if (!Settings::isPrefixBundled(lines[n])) continue; // skip system/ignored prefixes
-                
                 // trim useless info, keep only library name
                 std::string dep_path = lines[n].substr(1, lines[n].rfind(" (") - 1);
-                if (isRpath(dep_path))
-                {
-                    collectRpathsForFilename(searchFilenameInRpaths(dep_path, original_path));
-                }
-
                 addDependency(dep_path, original_path);
             }//next
         }//next
         
         if (deps.size() == dep_amount) break; // no more dependencies were added on this iteration, stop searching
     }
+
+    if (Settings::bundleLibs() && Settings::bundleFrameworks())
+    {
+        if ( !qt_plugins_called || (deps.size() != dep_counter) ) copyQtPlugins();
+    }
 }
 
 void createDestDir()
 {
     std::string dest_folder = Settings::destFolder();
-    std::cout << "* Checking output directory " << dest_folder.c_str() << std::endl;
+    std::cout << "Checking output directory " << dest_folder.c_str() << std::endl;
     
     // ----------- check dest folder stuff ----------
     bool dest_exists = fileExists(dest_folder);
     
-    if (dest_exists and Settings::canOverwriteDir())
+    if(dest_exists and Settings::canOverwriteDir())
     {
-        std::cout << "* Erasing old output directory " << dest_folder.c_str() << std::endl;
+        std::cout << "Erasing old output directory " << dest_folder.c_str() << std::endl;
         std::string command = std::string("rm -r ") + dest_folder;
-        if (systemp(command) != 0)
+        if( systemp( command ) != 0)
         {
             std::cerr << "\n\nError : An error occured while attempting to overwrite dest folder." << std::endl;
             exit(1);
@@ -401,14 +403,14 @@ void createDestDir()
         dest_exists = false;
     }
     
-    if (!dest_exists)
+    if(!dest_exists)
     {
         
-        if (Settings::canCreateDir())
+        if(Settings::canCreateDir())
         {
-            std::cout << "* Creating output directory " << dest_folder.c_str() << std::endl;
+            std::cout << "Creating output directory " << dest_folder.c_str() << "\n\n";
             std::string command = std::string("mkdir -p ") + dest_folder;
-            if (systemp(command) != 0)
+            if( systemp( command ) != 0)
             {
                 std::cerr << "\n\nError : An error occured while creating dest folder." << std::endl;
                 exit(1);
@@ -425,7 +427,6 @@ void createDestDir()
 
 void doneWithDeps_go()
 {
-    std::cout << std::endl;
     const int dep_amount = deps.size();
     // print info to user
     for(int n=0; n<dep_amount; n++)
@@ -435,7 +436,7 @@ void doneWithDeps_go()
     std::cout << std::endl;
     
     // copy files if requested by user
-    if (Settings::bundleLibs())
+    if(Settings::bundleLibs())
     {
         createDestDir();
         
@@ -454,3 +455,117 @@ void doneWithDeps_go()
         fixRpathsOnFile(Settings::fileToFix(n), Settings::fileToFix(n));
     }
 }
+
+void copyQtPlugins()
+{
+    bool qtCoreFound = false;
+    bool qtGuiFound = false;
+    bool qtNetworkFound = false;
+    bool qtSqlFound = false;
+    bool qtSvgFound = false;
+    bool qtMultimediaFound = false;
+    bool qt3dRenderFound = false;
+    bool qt3dQuickRenderFound = false;
+    bool qtPositioningFound = false;
+    bool qtLocationFound = false;
+    bool qtTextToSpeechFound = false;
+    bool qtWebViewFound = false;
+    std::string original_file;
+
+    for (std::set<std::string>::iterator it = frameworks.begin(); it != frameworks.end(); ++it)
+    {
+        std::string framework = *it;
+        if (framework.find("QtCore") != std::string::npos)
+        {
+            qtCoreFound = true;
+            original_file = framework;
+        }
+        if (framework.find("QtNetwork") != std::string::npos)
+            qtNetworkFound = true;
+        if (framework.find("QtSql") != std::string::npos)
+            qtSqlFound = true;
+        if (framework.find("QtSvg") != std::string::npos)
+            qtSvgFound = true;
+        if (framework.find("QtMultimedia") != std::string::npos)
+            qtMultimediaFound = true;
+        if (framework.find("Qt3DRender") != std::string::npos)
+            qt3dRenderFound = true;
+        if (framework.find("Qt3DQuickRender") != std::string::npos)
+            qt3dQuickRenderFound = true;
+        if (framework.find("QtPositioning") != std::string::npos)
+            qtPositioningFound = true;
+        if (framework.find("QtLocation") != std::string::npos)
+            qtLocationFound = true;
+        if (framework.find("TextToSpeech") != std::string::npos)
+            qtTextToSpeechFound = true;
+        if (framework.find("WebView") != std::string::npos)
+            qtWebViewFound = true;
+    }
+
+    if (!qtCoreFound) return;
+    if (!qt_plugins_called) createQtConf(Settings::resourcesFolder());
+    qt_plugins_called = true;
+
+    const auto fixupPlugin = [original_file](std::string plugin)
+    {
+        std::string dest = Settings::pluginsFolder();
+        std::string framework_root = getFrameworkRoot(original_file);
+        std::string prefix = filePrefix(framework_root);
+        std::string qt_prefix = filePrefix(prefix.substr(0, prefix.size()-1));
+        std::string qt_plugins_prefix = qt_prefix + "plugins/";
+        if (fileExists(qt_plugins_prefix + plugin))
+        {
+            mkdir(dest + plugin);
+            copyFile(qt_plugins_prefix + plugin, dest);
+            std::vector<std::string> files = lsDir(dest + plugin+"/");
+            for (const auto& file : files)
+            {
+                Settings::addFileToFix(dest + plugin+"/"+file);
+                collectDependencies(dest + plugin+"/"+file);
+                changeId(dest + plugin+"/"+file, "@rpath/" + plugin+"/"+file);
+            }
+        }
+    };
+
+    std::string framework_root = getFrameworkRoot(original_file);
+    std::string prefix = filePrefix(framework_root);
+    std::string qt_prefix = filePrefix(prefix.substr(0, prefix.size()-1));
+    std::string qt_plugins_prefix = qt_prefix + "plugins/";
+
+    std::string dest = Settings::pluginsFolder();
+    mkdir(dest + "platforms");
+    copyFile(qt_plugins_prefix + "platforms/libqcocoa.dylib", dest + "platforms");
+    Settings::addFileToFix(dest + "platforms/libqcocoa.dylib");
+    collectDependencies(dest + "platforms/libqcocoa.dylib");
+
+    fixupPlugin("printsupport");
+    fixupPlugin("styles");
+    fixupPlugin("imageformats");
+    fixupPlugin("iconengines");
+    if (!qtSvgFound) systemp(std::string("rm -f ") + dest + "imageformats/libqsvg.dylib");
+    if (qtGuiFound)
+    {
+        fixupPlugin("platforminputcontexts");
+        fixupPlugin("virtualkeyboard");
+    }
+    if (qtNetworkFound) fixupPlugin("bearer");
+    if (qtSqlFound) fixupPlugin("sqldrivers");
+    if (qtMultimediaFound)
+    {
+        fixupPlugin("mediaservice");
+        fixupPlugin("audio");
+    }
+    if (qt3dRenderFound)
+    {
+        fixupPlugin("sceneparsers");
+        fixupPlugin("geometryloaders");
+    }
+    if (qt3dQuickRenderFound) fixupPlugin("renderplugins");
+    if (qtPositioningFound) fixupPlugin("position");
+    if (qtLocationFound) fixupPlugin("geoservices");
+    if (qtTextToSpeechFound) fixupPlugin("texttospeech");
+    if (qtWebViewFound) fixupPlugin("webview");
+
+    collectSubDependencies();
+}
+

@@ -48,13 +48,18 @@ void tokenize(const std::string& str, const char* delimiters, std::vector<std::s
 bool fileExists( std::string filename );
 
 void copyFile(std::string from, std::string to);
+
 void deleteFile(std::string path, bool overwrite);
 void deleteFile(std::string path);
 
+std::vector<std::string> lsDir(const std::string& path);
+bool mkdir(const std::string& path);
+
 // executes a command in the native shell and returns output in string
 std::string system_get_output(std::string cmd);
+
 // like 'system', runs a command on the system shell, but also prints the command to stdout.
-int systemp(std::string& cmd);
+int systemp(const std::string& cmd);
 
 std::string getUserInputDirForFile(const std::string& filename);
 
@@ -65,5 +70,7 @@ void changeInstallName(std::string binary_file, std::string old_name, std::strin
 
 // check the same paths the system would search for dylibs
 void initSearchPaths();
+
+void createQtConf(std::string directory);
 
 #endif
