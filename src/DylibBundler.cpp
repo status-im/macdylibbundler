@@ -1,10 +1,7 @@
 #include "DylibBundler.h"
 
-#include <cstdio>
-#include <cstdlib>
 #include <iostream>
 #include <map>
-#include <numeric>
 #include <set>
 #ifdef __linux
 #include <linux/limits.h>
@@ -19,8 +16,6 @@ std::map<std::string, std::vector<Dependency>> deps_per_file;
 std::map<std::string, bool> deps_collected;
 std::set<std::string> frameworks;
 std::set<std::string> rpaths;
-// std::map<std::string, std::vector<std::string>> rpaths_per_file;
-// std::map<std::string, std::string> rpath_to_fullpath;
 bool qt_plugins_called = false;
 
 void addDependency(std::string path, std::string dependent_file)
@@ -91,7 +86,6 @@ void collectRpaths(const std::string& filename)
     parseLoadCommands(filename, std::string("LC_RPATH"), std::string("path"), lines);
     for (const auto& line : lines) {
         rpaths.insert(line);
-        // rpaths_per_file[filename].push_back(line);
         Settings::addRpathForFile(filename, line);
         if (Settings::verboseOutput())
             std::cout << "  rpath: " << line << std::endl;

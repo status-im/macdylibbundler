@@ -84,7 +84,6 @@ std::string insideLibPath() { return inside_path; }
 void insideLibPath(std::string p)
 {
     inside_path = p;
-    // fix path if needed so it ends with '/'
     if (inside_path[inside_path.size()-1] != '/')
         inside_path += "/";
 }

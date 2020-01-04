@@ -1,23 +1,7 @@
 #include "Dependency.h"
 
-#include <algorithm>
-#include <cctype>
-#include <cstdio>
-#include <cstdlib>
-#include <functional>
 #include <iostream>
-#include <locale>
-#include <sstream>
-#include <vector>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-// #include "DylibBundler.h"
 #include "Settings.h"
 #include "Utils.h"
 

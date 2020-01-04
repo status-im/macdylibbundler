@@ -1,17 +1,12 @@
 #include "Utils.h"
 
-#include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <regex>
 #include <sstream>
 
-#include <stdio.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
-#include "Dependency.h"
 #include "Settings.h"
 
 std::string filePrefix(const std::string& in)
@@ -41,7 +36,6 @@ std::string stripLSlash(const std::string& in)
     return in;
 }
 
-// trim from end (in place)
 void rtrim_in_place(std::string& s)
 {
     s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) {
@@ -49,7 +43,6 @@ void rtrim_in_place(std::string& s)
     }).base(), s.end());
 }
 
-// trim from end (copying)
 std::string rtrim(std::string s)
 {
     rtrim_in_place(s);

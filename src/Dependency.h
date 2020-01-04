@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef _depend_h_
 #define _depend_h_
 

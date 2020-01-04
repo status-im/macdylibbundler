@@ -1,12 +1,7 @@
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <iostream>
-#include <vector>
 
 #include "DylibBundler.h"
 #include "Settings.h"
-#include "Utils.h"
 
 const std::string VERSION = "2.0.0 (2019-12-29)";
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef _settings_
 #define _settings_
 
@@ -73,3 +75,5 @@ bool fileHasRpath(const std::string& file);
 } // namespace Settings
 
 #endif
+
+std::string stripLSlash(const std::string& in);

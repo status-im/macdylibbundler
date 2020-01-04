@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef _DYLIB_BUNDLER_H_
 #define _DYLIB_BUNDLER_H_
 

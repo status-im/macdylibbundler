@@ -1,10 +1,10 @@
+#pragma once
+
 #ifndef _utils_h_
 #define _utils_h_
 
 #include <string>
 #include <vector>
-
-// class Library;
 
 std::string filePrefix(const std::string& in);
 std::string stripPrefix(const std::string& in);
