@@ -5,8 +5,6 @@
 
 void changeLibPathsOnFile(std::string file_to_fix);
 
-void parseLoadCommands(const std::string& file, std::string cmd, std::string value, std::vector<std::string>& lines);
-
 void collectRpaths(const std::string& filename);
 void collectRpathsForFilename(const std::string& filename);
 

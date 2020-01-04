@@ -12,30 +12,30 @@
 #include "Dependency.h"
 #include "Settings.h"
 
-std::string filePrefix(std::string in)
+std::string filePrefix(const std::string& in)
 {
     return in.substr(0, in.rfind("/")+1);
 }
 
-std::string stripPrefix(std::string in)
+std::string stripPrefix(const std::string& in)
 {
     return in.substr(in.rfind("/")+1);
 }
 
-std::string getFrameworkRoot(std::string in)
+std::string getFrameworkRoot(const std::string& in)
 {
     return in.substr(0, in.find(".framework")+10);
 }
 
-std::string getFrameworkPath(std::string in)
+std::string getFrameworkPath(const std::string& in)
 {
     return in.substr(in.rfind(".framework/")+11);
 }
 
-std::string stripLSlash(std::string in)
+std::string stripLSlash(const std::string& in)
 {
     if (in[0] == '.' && in[1] == '/')
-        in = in.substr(2, in.size());
+        return in.substr(2, in.size());
     return in;
 }
 
@@ -118,7 +118,7 @@ void tokenize(const std::string& str, const char* delim, std::vector<std::string
     }
 }
 
-std::vector<std::string> lsDir(std::string path)
+std::vector<std::string> lsDir(const std::string& path)
 {
     std::string cmd = "ls " + path;
     std::string output = systemOutput(cmd);
@@ -127,7 +127,7 @@ std::vector<std::string> lsDir(std::string path)
     return files;
 }
 
-bool fileExists(std::string filename)
+bool fileExists(const std::string& filename)
 {
     if (access(filename.c_str(), F_OK) != -1) {
         return true;
@@ -155,7 +155,7 @@ std::string bundleExecutableName(const std::string& app_bundle_path)
     return systemOutput(cmd);
 }
 
-void changeId(std::string binary_file, std::string new_id)
+void changeId(const std::string& binary_file, const std::string& new_id)
 {
     std::string command = std::string("install_name_tool -id ") + new_id + " " + binary_file;
     if (systemp(command) != 0) {
@@ -164,7 +164,7 @@ void changeId(std::string binary_file, std::string new_id)
     }
 }
 
-void changeInstallName(std::string binary_file, std::string old_name, std::string new_name)
+void changeInstallName(const std::string& binary_file, const std::string& old_name, const std::string& new_name)
 {
     std::string command = std::string("install_name_tool -change ") + old_name + " " + new_name + " " + binary_file;
     if (systemp(command) != 0) {
@@ -173,7 +173,7 @@ void changeInstallName(std::string binary_file, std::string old_name, std::strin
     }
 }
 
-void copyFile(std::string from, std::string to)
+void copyFile(const std::string& from, const std::string& to)
 {
     bool overwrite = Settings::canOverwriteFiles();
     if (fileExists(to) && !overwrite) {
@@ -198,7 +198,7 @@ void copyFile(std::string from, std::string to)
     }
 }
 
-void deleteFile(std::string path, bool overwrite)
+void deleteFile(const std::string& path, bool overwrite)
 {
     std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
     std::string command = std::string("rm -r ") + overwrite_permission + path;
@@ -208,13 +208,13 @@ void deleteFile(std::string path, bool overwrite)
     }
 }
 
-void deleteFile(std::string path)
+void deleteFile(const std::string& path)
 {
     bool overwrite = Settings::canOverwriteFiles();
     deleteFile(path, overwrite);
 }
 
-bool mkdir(std::string path)
+bool mkdir(const std::string& path)
 {
     if (Settings::verboseOutput())
         std::cout << "* Creating directory " << path << "\n\n";
@@ -266,10 +266,7 @@ std::string getUserInputDirForFile(const std::string& filename)
         auto searchPath = Settings::userSearchPath(n);
         if (!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
             searchPath += "/";
-        if (!fileExists(searchPath+filename)) {
-            continue;
-        }
-        else {
+        if (fileExists(searchPath+filename)) {
             if (!Settings::quietOutput()) {
                 std::cerr << (searchPath+filename) << " was found\n"
                           << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'" << "\n";
@@ -303,6 +300,51 @@ std::string getUserInputDirForFile(const std::string& filename)
                       << "/!\\ WARNINGS: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
             Settings::addUserSearchPath(prefix);
             return prefix;
+        }
+    }
+}
+
+void parseLoadCommands(const std::string& file, const std::string& cmd, const std::string& value, std::vector<std::string>& lines)
+{
+    std::string command = "otool -l " + file;
+    std::string output = systemOutput(command);
+
+    if (output.find("can't open file") != std::string::npos
+            || output.find("No such file") != std::string::npos
+            || output.find("at least one file must be specified") != std::string::npos
+            || output.size() < 1) {
+        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << file << " to read its load commands\n";
+        exit(1);
+    }
+
+    std::vector<std::string> raw_lines;
+    tokenize(output, "\n", &raw_lines);
+
+    bool searching = false;
+    std::string cmd_line = std::string("cmd ") + cmd;
+    std::string value_line = std::string(value + std::string(" "));
+    for (const auto& line : raw_lines) {
+        if (line.find(cmd_line) != std::string::npos) {
+            if (searching) {
+                std::cerr << "\n\n/!\\ ERROR: Failed to find " << value << " before next cmd" << std::endl;
+                exit(1);
+            }
+            searching = true;
+        }
+        else if (searching) {
+            size_t start_pos = line.find(value_line);
+            if (start_pos == std::string::npos)
+                continue;
+            size_t start = start_pos + value.size() + 1; // exclude data label "|value| "
+            size_t end = std::string::npos;
+            if (value == "name" || value == "path") {
+                size_t end_pos = line.find(" (");
+                if (end_pos == std::string::npos)
+                    continue;
+                end = end_pos - start;
+            }
+            lines.push_back(line.substr(start, end));
+            searching = false;
         }
     }
 }

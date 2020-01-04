@@ -265,50 +265,6 @@ void addDependency(std::string path, std::string dependent_file)
         deps_per_file[dependent_file].push_back(dep);
 }
 
-void parseLoadCommands(const std::string& file, std::string cmd, std::string value, std::vector<std::string>& lines)
-{
-    std::string command = "otool -l " + file;
-    std::string output = systemOutput(command);
-
-    if (output.find("can't open file") != std::string::npos
-            || output.find("No such file") != std::string::npos
-            || output.find("at least one file must be specified") != std::string::npos
-            || output.size() < 1) {
-        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << file << " to read its load commands\n";
-        exit(1);
-    }
-
-    std::vector<std::string> raw_lines;
-    tokenize(output, "\n", &raw_lines);
-
-    bool searching = false;
-    for (const auto& line : raw_lines) {
-        if (line.find("cmd " + cmd) != std::string::npos) {
-            if (searching) {
-                std::cerr << "\n\n/!\\ ERROR: Failed to find " << value << " before next cmd" << std::endl;
-                exit(1);
-            }
-            searching = true;
-        }
-        else if (searching) {
-            size_t start_pos = line.find(value + " ");
-            size_t end_pos = std::string::npos;
-            if (start_pos == std::string::npos)
-                continue;
-            size_t start = start_pos + value.size() + 1; // exclude data label "|value| "
-            size_t end = std::string::npos;
-            if (value == "name" || value == "path") {
-                end_pos = line.find(" (");
-                if (end_pos == std::string::npos)
-                    continue;
-                end = end_pos - start;
-            }
-            lines.push_back('\t' + line.substr(start, end));
-            searching = false;
-        }
-    }
-}
-
 // void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
 // {
 //     std::string cmd = "otool -l " + dependent_file;

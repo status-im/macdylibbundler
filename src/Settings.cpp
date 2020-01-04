@@ -26,17 +26,23 @@ std::string appBundle() { return app_bundle; }
 void appBundle(std::string path)
 {
     app_bundle = path;
+    char buffer[PATH_MAX];
+    if (realpath(app_bundle.c_str(), buffer))
+        app_bundle = buffer;
+
     if (app_bundle[app_bundle.size()-1] != '/')
         app_bundle += "/"; // fix path if needed so it ends with '/'
 
-    addFileToFix(app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle));
+    std::string bundle_executable_path = app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle);
+    if (realpath(bundle_executable_path.c_str(), buffer))
+        bundle_executable_path = buffer;
+    addFileToFix(bundle_executable_path);
 
     if (inside_path == inside_path_str)
         inside_path = inside_path_str_app;
     if (dest_folder == dest_folder_str)
         dest_folder = dest_folder_str_app;
 
-    char buffer[PATH_MAX];
     dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
     if (realpath(dest_path.c_str(), buffer))
         dest_path = buffer;
@@ -52,7 +58,7 @@ void destFolder(std::string path)
     dest_folder = path;
     if (appBundleProvided()) {
         char buffer[PATH_MAX];
-        std::string dest_path = app_bundle + "Contents/" + stripLSlash(path);
+        dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
         if (realpath(dest_path.c_str(), buffer))
             dest_path = buffer;
         if (dest_path[dest_path.size()-1] != '/')
