@@ -1,4 +1,7 @@
 #include "Settings.h"
+
+#include <map>
+
 #include "Utils.h"
 
 namespace Settings {
@@ -152,5 +155,15 @@ void verboseOutput(bool status) { verbose_output = status; }
 bool missing_prefixes = false;
 bool missingPrefixes() { return missing_prefixes; }
 void missingPrefixes(bool status) { missing_prefixes = status; }
+
+std::map<std::string, std::string> rpath_to_fullpath;
+std::string getFullPath(const std::string& rpath) { return rpath_to_fullpath[rpath]; }
+void rpathToFullPath(const std::string& rpath, const std::string& fullpath) { rpath_to_fullpath[rpath] = fullpath; }
+bool rpathFound(const std::string& rpath) { return rpath_to_fullpath.find(rpath) != rpath_to_fullpath.end(); }
+
+std::map<std::string, std::vector<std::string>> rpaths_per_file;
+std::vector<std::string> getRpathsForFile(const std::string& file) { return rpaths_per_file[file]; }
+void addRpathForFile(const std::string& file, const std::string& rpath) { rpaths_per_file[file].push_back(rpath); }
+bool fileHasRpath(const std::string& file) { return rpaths_per_file.find(file) != rpaths_per_file.end(); }
 
 } // namespace Settings

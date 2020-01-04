@@ -62,6 +62,14 @@ void verboseOutput(bool status);
 bool missingPrefixes();
 void missingPrefixes(bool status);
 
+std::string getFullPath(const std::string& rpath);
+void rpathToFullPath(const std::string& rpath, const std::string& fullpath);
+bool rpathFound(const std::string& rpath);
+
+std::vector<std::string> getRpathsForFile(const std::string& file);
+void addRpathForFile(const std::string& file, const std::string& rpath);
+bool fileHasRpath(const std::string& file);
+
 } // namespace Settings
 
 #endif

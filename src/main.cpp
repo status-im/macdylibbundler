@@ -94,6 +94,10 @@ int main(int argc, const char* argv[])
             Settings::verboseOutput(true);
             continue;
         }
+        else if (strcmp(argv[i],"-b") == 0 || strcmp(argv[i],"--bundle-libs") == 0) {
+            // old flag, on by default now. ignore.
+            continue;
+        }
         else if (strcmp(argv[i],"-V") == 0 || strcmp(argv[i],"--version") == 0) {
             std::cout << "dylibbundler " << VERSION << std::endl;
             exit(0);
@@ -101,10 +105,6 @@ int main(int argc, const char* argv[])
         else if (strcmp(argv[i],"-h") == 0 || strcmp(argv[i],"--help") == 0) {
             showHelp();
             exit(0);
-        }
-        else if (strcmp(argv[i],"-b") == 0 || strcmp(argv[i],"--bundle-libs") == 0) {
-            // old flag, on by default now. ignore.
-            continue;
         }
         else if (i > 0) {
             // unknown flag, abort
@@ -114,7 +114,7 @@ int main(int argc, const char* argv[])
         }
     }
 
-    if (!Settings::bundleLibs() && Settings::filesToFixCount() < 1) {
+    if (Settings::filesToFixCount() < 1) {
         showHelp();
         exit(0);
     }

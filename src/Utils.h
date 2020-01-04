@@ -38,14 +38,19 @@ void changeInstallName(const std::string& binary_file, const std::string& old_na
 void copyFile(const std::string& from, const std::string& to);
 void deleteFile(const std::string& path, bool overwrite);
 void deleteFile(const std::string& path);
-
 bool mkdir(const std::string& path);
+
 void createDestDir();
 
 std::string getUserInputDirForFile(const std::string& filename);
+
 void parseLoadCommands(const std::string& file, const std::string& cmd, const std::string& value, std::vector<std::string>& lines);
+
+std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file);
 
 // check the same paths the system would search for dylibs
 void initSearchPaths();
+
+void createQtConf(std::string directory);
 
 #endif
