@@ -1,8 +1,9 @@
 #pragma once
 
-#ifndef _utils_h_
-#define _utils_h_
+#ifndef DYLIBBUNDLER_UTILS_H
+#define DYLIBBUNDLER_UTILS_H
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -44,7 +45,9 @@ void createDestDir();
 
 std::string getUserInputDirForFile(const std::string& filename, const std::string& dependent_file);
 
+void otool(const std::string& flags, const std::string& file, std::vector<std::string>& lines);
 void parseLoadCommands(const std::string& file, const std::string& cmd, const std::string& value, std::vector<std::string>& lines);
+void parseLoadCommands(const std::string& file, const std::map<std::string,std::string>& cmds_values, std::map<std::string,std::vector<std::string>>& cmds_results);
 
 std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file);
 std::string searchFilenameInRpaths(const std::string& rpath_file);

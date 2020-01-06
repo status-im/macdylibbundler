@@ -23,6 +23,7 @@ std::map<std::string, std::vector<Dependency>> deps_per_file;
 std::map<std::string, bool> deps_collected;
 std::set<std::string> frameworks;
 std::set<std::string> rpaths;
+std::map<std::string, bool> rpaths_collected;
 bool qt_plugins_called = false;
 
 void addDependency(const std::string& path, const std::string& dependent_file)
@@ -32,71 +33,98 @@ void addDependency(const std::string& path, const std::string& dependent_file)
     // check if this library was already added to |deps| to avoid duplicates
     bool in_deps = false;
     for (auto& dep : deps) {
-        if (dependency.mergeIfSameAs(dep))
+        if (dependency.MergeIfIdentical(dep))
             in_deps = true;
     }
 
     // check if this library was already added to |deps_per_file[dependent_file]| to avoid duplicates
     bool in_deps_per_file = false;
     for (auto& dep : deps_per_file[dependent_file]) {
-        if (dependency.mergeIfSameAs(dep))
+        if (dependency.MergeIfIdentical(dep))
             in_deps_per_file = true;
     }
 
     // check if this library is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(dependency.getPrefix()))
+    if (!Settings::isPrefixBundled(dependency.Prefix()))
         return;
 
-    if (!in_deps && dependency.isFramework())
-        frameworks.insert(dependency.getOriginalPath());
+    if (!in_deps && dependency.IsFramework())
+        frameworks.insert(dependency.OriginalPath());
     if (!in_deps)
         deps.push_back(dependency);
     if (!in_deps_per_file)
         deps_per_file[dependent_file].push_back(dependency);
 }
 
-void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
+void collectDependencies(const std::string& dependent_file)
 {
-    parseLoadCommands(dependent_file, std::string("LC_LOAD_DYLIB"), std::string("name"), lines);
-}
+    if (deps_collected.find(dependent_file) != deps_collected.end() && Settings::fileHasRpath(dependent_file))
+        return;
 
-void collectDependenciesForFile(const std::string& file, std::vector<std::string>& lines)
-{
-    if (deps_collected.find(file) == deps_collected.end())
-        collectDependencies(file, lines);
-}
+    std::map<std::string,std::string> cmds_values;
+    std::string dylib = "LC_LOAD_DYLIB";
+    std::string rpath = "LC_RPATH";
+    cmds_values[dylib] = "name";
+    cmds_values[rpath] = "path";
+    std::map<std::string,std::vector<std::string>> cmds_results;
 
-void collectDependenciesForFile(const std::string& dependent_file)
-{
-    std::vector<std::string> lines;
-    collectDependenciesForFile(dependent_file, lines);
-    collectRpathsForFilename(dependent_file);
+    parseLoadCommands(dependent_file, cmds_values, cmds_results);
 
-    for (const auto& line : lines) {
-        if (!Settings::isPrefixBundled(line))
-            continue; // skip system/ignored prefixes
-        addDependency(line, dependent_file);
+    if (rpaths_collected.find(dependent_file) == rpaths_collected.end()) {
+        auto rpath_results = cmds_results[rpath];
+        for (const auto& rpath_result : rpath_results) {
+            rpaths.insert(rpath_result);
+            Settings::addRpathForFile(dependent_file, rpath_result);
+            if (Settings::verboseOutput())
+                std::cout << "  rpath: " << rpath_result << std::endl;
+        }
+        rpaths_collected[dependent_file] = true;
     }
-    deps_collected[dependent_file] = true;
-}
 
-void collectRpaths(const std::string& filename)
-{
-    std::vector<std::string> lines;
-    parseLoadCommands(filename, std::string("LC_RPATH"), std::string("path"), lines);
-    for (const auto& line : lines) {
-        rpaths.insert(line);
-        Settings::addRpathForFile(filename, line);
-        if (Settings::verboseOutput())
-            std::cout << "  rpath: " << line << std::endl;
+    if (deps_collected.find(dependent_file) == deps_collected.end()) {
+        auto dylib_results = cmds_results[dylib];
+        for (const auto& dylib_result : dylib_results) {
+            // skip system/ignored prefixes
+            if (Settings::isPrefixBundled(dylib_result))
+                addDependency(dylib_result, dependent_file);
+        }
+        deps_collected[dependent_file] = true;
     }
 }
 
-void collectRpathsForFilename(const std::string& filename)
-{
-    if (!Settings::fileHasRpath(filename))
-        collectRpaths(filename);
-}
+//void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
+//{
+//    if (deps_collected.find(dependent_file) == deps_collected.end())
+//        parseLoadCommands(dependent_file, std::string("LC_LOAD_DYLIB"), std::string("name"), lines);
+//}
+
+//void collectDependencies(const std::string& dependent_file)
+//{
+//    std::vector<std::string> lines;
+//    collectDependencies(dependent_file, lines);
+//    collectRpaths(dependent_file);
+//
+//    for (const auto& line : lines) {
+//        if (!Settings::isPrefixBundled(line))
+//            continue; // skip system/ignored prefixes
+//        addDependency(line, dependent_file);
+//    }
+//    deps_collected[dependent_file] = true;
+//}
+
+//void collectRpaths(const std::string& filename)
+//{
+//    if (!Settings::fileHasRpath(filename)) {
+//        std::vector<std::string> lines;
+//        parseLoadCommands(filename, std::string("LC_RPATH"), std::string("path"), lines);
+//        for (const auto &line : lines) {
+//            rpaths.insert(line);
+//            Settings::addRpathForFile(filename, line);
+//            if (Settings::verboseOutput())
+//                std::cout << "  rpath: " << line << std::endl;
+//        }
+//    }
+//}
 
 void collectSubDependencies()
 {
@@ -110,21 +138,23 @@ void collectSubDependencies()
     while (true) {
         deps_size = deps.size();
         for (size_t n=0; n<deps_size; ++n) {
-            std::string original_path = deps[n].getOriginalPath();
+            std::string original_path = deps[n].OriginalPath();
             if (Settings::verboseOutput())
                 std::cout << "  (collect sub deps) original path: " << original_path << std::endl;
             if (isRpath(original_path))
                 original_path = searchFilenameInRpaths(original_path);
 
-            std::vector<std::string> lines;
-            collectDependenciesForFile(original_path, lines);
-            collectRpathsForFilename(original_path);
+//            std::vector<std::string> lines;
+//            collectDependencies(original_path, lines);
+//            collectRpaths(original_path);
+//
+//            for (const auto& line : lines) {
+//                if (!Settings::isPrefixBundled(line))
+//                    continue; // skip system/ignored prefixes
+//                addDependency(line, original_path);
+//            }
 
-            for (const auto& line : lines) {
-                if (!Settings::isPrefixBundled(line))
-                    continue; // skip system/ignored prefixes
-                addDependency(line, original_path);
-            }
+            collectDependencies(original_path);
         }
         // if no more dependencies were added on this iteration, stop searching
         if (deps.size() == deps_size)
@@ -143,28 +173,30 @@ void collectSubDependencies()
 
 void changeLibPathsOnFile(const std::string& file_to_fix)
 {
-    if (deps_collected.find(file_to_fix) == deps_collected.end())
-        collectDependenciesForFile(file_to_fix);
+    if (deps_collected.find(file_to_fix) == deps_collected.end() || rpaths_collected.find(file_to_fix) == rpaths_collected.end())
+        collectDependencies(file_to_fix);
 
     std::cout << "* Fixing dependencies on " << file_to_fix << "\n";
 
-    const size_t dep_amount = deps_per_file[file_to_fix].size();
-    for (size_t n=0; n<dep_amount; ++n) {
-        deps_per_file[file_to_fix][n].fixDependentFiles(file_to_fix);
+    std::vector<Dependency> dependencies = deps_per_file[file_to_fix];
+    for (auto& dependency : dependencies) {
+        dependency.FixDependentFile(file_to_fix);
     }
 }
 
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
 {
     std::vector<std::string> rpaths_to_fix;
-    if (Settings::fileHasRpath(original_file))
-        rpaths_to_fix = Settings::getRpathsForFile(original_file);
+    if (!Settings::fileHasRpath(original_file))
+        return;
 
-    for (const auto& i : rpaths_to_fix) {
+    rpaths_to_fix = Settings::getRpathsForFile(original_file);
+    for (const auto& rpath_to_fix : rpaths_to_fix) {
         std::string command = std::string("install_name_tool -rpath ");
-        command += i + " " + Settings::insideLibPath() + " " + file_to_fix;
+        command.append(rpath_to_fix).append(" ").append(Settings::insideLibPath());
+        command.append(" ").append(file_to_fix);
         if (systemp(command) != 0) {
-            std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
+            std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix rpath " << rpath_to_fix << " of " << file_to_fix << std::endl;
             exit(1);
         }
     }
@@ -173,21 +205,22 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
 void bundleDependencies()
 {
     for (const auto& dep : deps) {
-        dep.print();
+        dep.Print();
     }
     std::cout << "\n";
     if (Settings::verboseOutput()) {
+        std::cout << "rpaths:" << std::endl;
         for (const auto& rpath : rpaths) {
-            std::cout << "rpaths: " << rpath << std::endl;
+            std::cout << "* " << rpath << std::endl;
         }
     }
     // copy & fix up dependencies
     if (Settings::bundleLibs()) {
         createDestDir();
         for (const auto& dep : deps) {
-            dep.copyToAppBundle();
-            changeLibPathsOnFile(dep.getInstallPath());
-            fixRpathsOnFile(dep.getOriginalPath(), dep.getInstallPath());
+            dep.CopyToBundle();
+            changeLibPathsOnFile(dep.InstallPath());
+            fixRpathsOnFile(dep.OriginalPath(), dep.InstallPath());
         }
     }
     // fix up selected files
@@ -261,7 +294,7 @@ void bundleQtPlugins()
             std::vector<std::string> files = lsDir(dest + plugin+"/");
             for (const auto& file : files) {
                 Settings::addFileToFix(dest + plugin+"/"+file);
-                collectDependenciesForFile(dest + plugin+"/"+file);
+                collectDependencies(dest + plugin + "/" + file);
                 changeId(dest + plugin+"/"+file, "@rpath/" + plugin+"/"+file);
             }
         }
@@ -276,7 +309,7 @@ void bundleQtPlugins()
     mkdir(dest + "platforms");
     copyFile(qt_plugins_prefix + "platforms/libqcocoa.dylib", dest + "platforms");
     Settings::addFileToFix(dest + "platforms/libqcocoa.dylib");
-    collectDependenciesForFile(dest + "platforms/libqcocoa.dylib");
+    collectDependencies(dest + "platforms/libqcocoa.dylib");
 
     fixupPlugin("printsupport");
     fixupPlugin("styles");

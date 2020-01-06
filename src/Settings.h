@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef _settings_
-#define _settings_
+#ifndef DYLIBBUNDLER_SETTINGS_H
+#define DYLIBBUNDLER_SETTINGS_H
 
 #include <string>
 #include <vector>

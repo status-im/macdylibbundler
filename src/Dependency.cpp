@@ -15,35 +15,33 @@
 
 Dependency::Dependency(std::string path, const std::string& dependent_file) : is_framework(false)
 {
-    char original_file_buffer[PATH_MAX];
+    char buffer[PATH_MAX];
+    rtrim_in_place(path);
     std::string original_file;
     std::string warning_msg;
-
-    rtrim_in_place(path);
-
-    if (Settings::verboseOutput()) {
-        std::cout<< "** Dependency ctor **" << std::endl;
-        if (path != dependent_file)
-            std::cout << "  dependent file:  " << dependent_file << std::endl;
-        std::cout << "  dependency path: " << path << std::endl;
-    }
 
     if (isRpath(path)) {
         original_file = searchFilenameInRpaths(path, dependent_file);
     }
-    else if (realpath(path.c_str(), original_file_buffer)) {
-        original_file = original_file_buffer;
-        if (Settings::verboseOutput())
-            std::cout << "  original_file:   " << original_file << std::endl;
+    else if (realpath(path.c_str(), buffer)) {
+        original_file = buffer;
     }
     else {
         warning_msg = "\n/!\\ WARNING: Cannot resolve path '" + path + "'\n";
         original_file = path;
     }
 
+    if (Settings::verboseOutput()) {
+        std::cout<< "** Dependency ctor **" << std::endl;
+        if (path != dependent_file)
+            std::cout << "  dependent file:  " << dependent_file << std::endl;
+        std::cout << "  dependency path: " << path << std::endl;
+        std::cout << "  original_file:   " << original_file << std::endl;
+    }
+
     // check if given path is a symlink
     if (original_file != path)
-        addSymlink(path);
+        AddSymlink(path);
 
     prefix = filePrefix(original_file);
     filename = stripPrefix(original_file);
@@ -72,10 +70,8 @@ Dependency::Dependency(std::string path, const std::string& dependent_file) : is
     // check if the lib is in a known location
     if (prefix.empty() || !fileExists(prefix+filename)) {
         std::vector<std::string> search_paths = Settings::searchPaths();
-        // the paths contains at least /usr/lib so if it is empty we have not initialized it
         if (search_paths.empty())
             initSearchPaths();
-
         // check if file is contained in one of the paths
         for (const auto& search_path : search_paths) {
             if (fileExists(search_path+filename)) {
@@ -103,45 +99,37 @@ Dependency::Dependency(std::string path, const std::string& dependent_file) : is
     new_name = filename;
 }
 
-std::string Dependency::getInstallPath() const
-{
-    return Settings::destFolder() + new_name;
-}
-
-std::string Dependency::getInnerPath() const
+std::string Dependency::InnerPath() const
 {
     return Settings::insideLibPath() + new_name;
 }
 
-void Dependency::print() const
+std::string Dependency::InstallPath() const
 {
-    std::cout << "\n* " << filename << " from " << prefix << std::endl;
-    for (const auto& symlink : symlinks) {
-        std::cout << "    symlink --> " << symlink << std::endl;
-    }
+    return Settings::destFolder() + new_name;
 }
 
-void Dependency::addSymlink(const std::string& s)
+void Dependency::AddSymlink(const std::string& path)
 {
-    if (std::find(symlinks.begin(), symlinks.end(), s) == symlinks.end())
-        symlinks.push_back(s);
+    if (std::find(symlinks.begin(), symlinks.end(), path) == symlinks.end())
+        symlinks.push_back(path);
 }
 
-bool Dependency::mergeIfSameAs(Dependency& dep2)
+bool Dependency::MergeIfIdentical(Dependency& dependency)
 {
-    if (dep2.getOriginalFileName() == filename) {
+    if (dependency.OriginalFilename() == filename) {
         for (const auto& symlink : symlinks) {
-            dep2.addSymlink(symlink);
+            dependency.AddSymlink(symlink);
         }
         return true;
     }
     return false;
 }
 
-void Dependency::copyToAppBundle() const
+void Dependency::CopyToBundle() const
 {
-    std::string original_path = getOriginalPath();
-    std::string dest_path = getInstallPath();
+    std::string original_path = OriginalPath();
+    std::string dest_path = InstallPath();
 
     if (is_framework) {
         original_path = getFrameworkRoot(original_path);
@@ -149,11 +137,11 @@ void Dependency::copyToAppBundle() const
     }
 
     if (Settings::verboseOutput()) {
-        std::string inner_path = getInnerPath();
+        std::string inner_path = InnerPath();
         std::cout << "  - original path: " << original_path << std::endl;
         std::cout << "  - inner path:    " << inner_path << std::endl;
         std::cout << "  - dest_path:     " << dest_path << std::endl;
-        std::cout << "  - install path:  " << getInstallPath() << std::endl;
+        std::cout << "  - install path:  " << InstallPath() << std::endl;
     }
 
     copyFile(original_path, dest_path);
@@ -167,20 +155,28 @@ void Dependency::copyToAppBundle() const
         deleteFile(dest_path + "/*.prl");
     }
 
-    changeId(getInstallPath(), "@rpath/"+new_name);
+    changeId(InstallPath(), "@rpath/" + new_name);
 }
 
-void Dependency::fixDependentFiles(const std::string& file) const
+void Dependency::FixDependentFile(const std::string& dependent_file) const
 {
-    changeInstallName(file, getOriginalPath(), getInnerPath());
+    changeInstallName(dependent_file, OriginalPath(), InnerPath());
     for (const auto& symlink : symlinks) {
-        changeInstallName(file, symlink, getInnerPath());
+        changeInstallName(dependent_file, symlink, InnerPath());
     }
 
     if (Settings::missingPrefixes()) {
-        changeInstallName(file, filename, getInnerPath());
+        changeInstallName(dependent_file, filename, InnerPath());
         for (const auto& symlink : symlinks) {
-            changeInstallName(file, symlink, getInnerPath());
+            changeInstallName(dependent_file, symlink, InnerPath());
         }
+    }
+}
+
+void Dependency::Print() const
+{
+    std::cout << "\n* " << filename << " from " << prefix << std::endl;
+    for (const auto& symlink : symlinks) {
+        std::cout << "    symlink --> " << symlink << std::endl;
     }
 }

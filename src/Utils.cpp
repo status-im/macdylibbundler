@@ -299,27 +299,32 @@ std::string getUserInputDirForFile(const std::string& filename, const std::strin
     }
 }
 
-void parseLoadCommands(const std::string& file, const std::string& cmd, const std::string& value, std::vector<std::string>& lines)
+void otool(const std::string& flags, const std::string& file, std::vector<std::string>& lines)
 {
-    std::string command = "otool -l " + file;
+    std::string command = "otool " + flags + " " + file;
     std::string output = systemOutput(command);
 
     if (output.find("can't open file") != std::string::npos
-            || output.find("No such file") != std::string::npos
-            || output.find("at least one file must be specified") != std::string::npos
-            || output.empty()) {
+        || output.find("No such file") != std::string::npos
+        || output.find("at least one file must be specified") != std::string::npos
+        || output.empty()) {
         std::cerr << "\n\n/!\\ ERROR: Cannot find file " << file << " to read its load commands\n";
         exit(1);
     }
 
+    tokenize(output, "\n", &lines);
+}
+
+void parseLoadCommands(const std::string& file, const std::string& cmd, const std::string& value, std::vector<std::string>& lines)
+{
     std::vector<std::string> raw_lines;
-    tokenize(output, "\n", &raw_lines);
+    otool("-l", file, raw_lines);
 
     bool searching = false;
     std::string cmd_line = std::string("cmd ") + cmd;
     std::string value_line = std::string(value + std::string(" "));
-    for (const auto& line : raw_lines) {
-        if (line.find(cmd_line) != std::string::npos) {
+    for (const auto& raw_line : raw_lines) {
+        if (raw_line.find(cmd_line) != std::string::npos) {
             if (searching) {
                 std::cerr << "\n\n/!\\ ERROR: Failed to find " << value << " before next cmd\n";
                 exit(1);
@@ -327,20 +332,59 @@ void parseLoadCommands(const std::string& file, const std::string& cmd, const st
             searching = true;
         }
         else if (searching) {
-            size_t start_pos = line.find(value_line);
+            size_t start_pos = raw_line.find(value_line);
             if (start_pos == std::string::npos)
                 continue;
             size_t start = start_pos + value.size() + 1; // exclude data label "|value| "
             size_t end = std::string::npos;
             if (value == "name" || value == "path") {
-                size_t end_pos = line.find(" (");
+                size_t end_pos = raw_line.find(" (");
                 if (end_pos == std::string::npos)
                     continue;
                 end = end_pos - start;
             }
-            lines.push_back(line.substr(start, end));
+            lines.push_back(raw_line.substr(start, end));
             searching = false;
         }
+    }
+}
+
+void parseLoadCommands(const std::string& file, const std::map<std::string,std::string>& cmds_values, std::map<std::string,std::vector<std::string>>& cmds_results)
+{
+    std::vector<std::string> raw_lines;
+    otool("-l", file, raw_lines);
+
+    for (const auto& cmd_value : cmds_values) {
+        std::vector<std::string> lines;
+        std::string cmd = cmd_value.first;
+        std::string value = cmd_value.second;
+        std::string cmd_line = std::string("cmd ") + cmd;
+        std::string value_line = std::string(value) + std::string(" ");
+        bool searching = false;
+        for (const auto& raw_line : raw_lines) {
+            if (raw_line.find(cmd_line) != std::string::npos) {
+                if (searching) {
+                    std::cerr << "\n\n/!\\ ERROR: Failed to find " << value << " before next cmd\n";
+                    exit(1);
+                }
+                searching = true;
+            } else if (searching) {
+                size_t start_pos = raw_line.find(value_line);
+                if (start_pos == std::string::npos)
+                    continue;
+                size_t start = start_pos + value.size() + 1; // exclude data label "|value| "
+                size_t end = std::string::npos;
+                if (value == "name" || value == "path") {
+                    size_t end_pos = raw_line.find(" (");
+                    if (end_pos == std::string::npos)
+                        continue;
+                    end = end_pos - start;
+                }
+                lines.push_back(raw_line.substr(start, end));
+                searching = false;
+            }
+        }
+        cmds_results[cmd] = lines;
     }
 }
 
