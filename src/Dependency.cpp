@@ -52,7 +52,8 @@ Dependency::Dependency(std::string path, const std::string& dependent_file) : is
         prefix += "/";
 
     // check if this dependency is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(prefix)) return;
+    if (!Settings::isPrefixBundled(prefix))
+        return;
 
     if (original_file.find(".framework") != std::string::npos) {
         is_framework = true;
@@ -70,15 +71,13 @@ Dependency::Dependency(std::string path, const std::string& dependent_file) : is
 
     // check if the lib is in a known location
     if (prefix.empty() || !fileExists(prefix+filename)) {
+        std::vector<std::string> search_paths = Settings::searchPaths();
         // the paths contains at least /usr/lib so if it is empty we have not initialized it
-        size_t search_path_count = Settings::searchPathCount();
-        if (search_path_count == 0)
+        if (search_paths.empty())
             initSearchPaths();
 
         // check if file is contained in one of the paths
-        search_path_count = Settings::searchPathCount();
-        for (size_t i=0; i<search_path_count; ++i) {
-            std::string search_path = Settings::searchPath(i);
+        for (const auto& search_path : search_paths) {
             if (fileExists(search_path+filename)) {
                 warning_msg += "FOUND " + filename + " in " + search_path + "\n";
                 prefix = search_path;
@@ -98,7 +97,7 @@ Dependency::Dependency(std::string path, const std::string& dependent_file) : is
         if (Settings::verboseOutput())
             std::cout << "     path: " << (prefix+filename) << std::endl;
         Settings::missingPrefixes(true);
-        Settings::addSearchPath(getUserInputDirForFile(filename));
+        Settings::addSearchPath(getUserInputDirForFile(filename, dependent_file));
     }
 
     new_name = filename;

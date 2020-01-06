@@ -66,7 +66,8 @@ std::string systemOutput(const std::string& cmd)
 
     try {
         command_output = popen(cmd.c_str(), "r");
-        if (command_output == nullptr) throw;
+        if (command_output == nullptr)
+            throw;
 
         while (amount_read > 0) {
             amount_read = fread(output, 1, 127, command_output);
@@ -86,7 +87,8 @@ std::string systemOutput(const std::string& cmd)
     }
 
     int return_value = pclose(command_output);
-    if (return_value != 0) return "";
+    if (return_value != 0)
+        return "";
 
     return full_output;
 }
@@ -253,25 +255,24 @@ void createDestDir()
     }
 }
 
-std::string getUserInputDirForFile(const std::string& filename)
+std::string getUserInputDirForFile(const std::string& filename, const std::string& dependent_file)
 {
-    const size_t searchPathCount = Settings::userSearchPathCount();
-    for (size_t n=0; n<searchPathCount; ++n) {
-        auto searchPath = Settings::userSearchPath(n);
-        if (!searchPath.empty() && searchPath[searchPath.size()-1] != '/')
-            searchPath += "/";
-        if (fileExists(searchPath+filename)) {
+    std::vector<std::string> search_paths = Settings::userSearchPaths();
+    for (auto& search_path : search_paths) {
+        if (!search_path.empty() && search_path[search_path.size() - 1] != '/')
+            search_path += "/";
+        if (fileExists(search_path + filename)) {
             if (!Settings::quietOutput()) {
-                std::cerr << (searchPath+filename) << " was found\n"
+                std::cerr << (search_path + filename) << " was found\n"
                           << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
             }
-            return searchPath;
+            return search_path;
         }
     }
 
     while (true) {
         if (Settings::quietOutput())
-            std::cerr << "\n/!\\ WARNING: Dependency " << filename << " has an incomplete name (location unknown)\n";
+            std::cerr << "\n/!\\ WARNING: Dependency " << filename << " of " << dependent_file << " not found\n";
         std::cout << "\nPlease specify the directory where this file is located (or enter 'quit' to abort): ";
         fflush(stdout);
 
@@ -432,7 +433,7 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
                 std::cout << "  ** rpath fullpath: not found" << std::endl;
             if (!Settings::quietOutput())
                 std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
-            fullpath = getUserInputDirForFile(suffix) + suffix;
+            fullpath = getUserInputDirForFile(suffix, dependent_file) + suffix;
             if (Settings::quietOutput() && fullpath.empty())
                 std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
             if (realpath(fullpath.c_str(), fullpath_buffer))

@@ -40,8 +40,6 @@ private:
 
     // installation
     std::string new_name;
-
-    void print();
 };
 
 #endif

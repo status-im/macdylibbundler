@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-void addDependency(std::string path, const std::string& dependent_file);
+void addDependency(const std::string& path, const std::string& dependent_file);
 
 // std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file);
 // std::string searchFilenameInRpaths(const std::string& rpath_file);

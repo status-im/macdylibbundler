@@ -16,35 +16,30 @@ bool isPrefixBundled(const std::string& prefix);
 bool isPrefixIgnored(const std::string& prefix);
 void ignorePrefix(std::string prefix);
 
-bool appBundleProvided();
 std::string appBundle();
 void appBundle(std::string path);
+bool appBundleProvided();
 
 std::string destFolder();
 void destFolder(std::string path);
+
+std::string insideLibPath();
+void insideLibPath(std::string p);
 
 std::string executableFolder();
 std::string frameworksFolder();
 std::string pluginsFolder();
 std::string resourcesFolder();
 
-void addFileToFix(std::string path);
-std::string fileToFix(int n);
 std::vector<std::string> filesToFix();
+void addFileToFix(std::string path);
 size_t filesToFixCount();
 
-std::string insideLibPath();
-void insideLibPath(std::string p);
-
-void addSearchPath(const std::string& path);
 std::vector<std::string> searchPaths();
-std::string searchPath(int n);
-size_t searchPathCount();
+void addSearchPath(const std::string& path);
 
-void addUserSearchPath(const std::string& path);
 std::vector<std::string> userSearchPaths();
-std::string userSearchPath(int n);
-size_t userSearchPathCount();
+void addUserSearchPath(const std::string& path);
 
 bool canCreateDir();
 void canCreateDir(bool permission);

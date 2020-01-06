@@ -28,7 +28,6 @@ std::string inside_path_str_app = "@executable_path/../Frameworks/";
 std::string inside_path = inside_path_str;
 
 std::string app_bundle;
-bool appBundleProvided() { return !app_bundle.empty(); }
 std::string appBundle() { return app_bundle; }
 void appBundle(std::string path)
 {
@@ -56,6 +55,7 @@ void appBundle(std::string path)
     if (dest_path[dest_path.size()-1] != '/')
         dest_path += "/";
 }
+bool appBundleProvided() { return !app_bundle.empty(); }
 
 std::string destFolder() { return dest_path; }
 void destFolder(std::string path)
@@ -68,6 +68,14 @@ void destFolder(std::string path)
         dest_path = buffer;
     if (dest_path[dest_path.size()-1] != '/')
         dest_path += "/";
+}
+
+std::string insideLibPath() { return inside_path; }
+void insideLibPath(std::string p)
+{
+    inside_path = std::move(p);
+    if (inside_path[inside_path.size()-1] != '/')
+        inside_path += "/";
 }
 
 std::string executableFolder() { return app_bundle + "Contents/MacOS/"; }
@@ -83,17 +91,9 @@ void addFileToFix(std::string path)
         path = buffer;
     files.push_back(path);
 }
-std::string fileToFix(const int n) { return files[n]; }
+
 std::vector<std::string> filesToFix() { return files; }
 size_t filesToFixCount() { return files.size(); }
-
-std::string insideLibPath() { return inside_path; }
-void insideLibPath(std::string p)
-{
-    inside_path = std::move(p);
-    if (inside_path[inside_path.size()-1] != '/')
-        inside_path += "/";
-}
 
 std::vector<std::string> prefixes_to_ignore;
 void ignorePrefix(std::string prefix)
@@ -104,8 +104,8 @@ void ignorePrefix(std::string prefix)
 }
 bool isPrefixIgnored(const std::string& prefix)
 {
-    for (size_t n=0; n<prefixes_to_ignore.size(); n++) {
-        if (prefix == prefixes_to_ignore[n])
+    for (const auto& prefix_to_ignore : prefixes_to_ignore) {
+        if (prefix == prefix_to_ignore)
             return true;
     }
     return false;
@@ -127,16 +127,12 @@ bool isPrefixBundled(const std::string& prefix)
 }
 
 std::vector<std::string> search_paths;
-void addSearchPath(const std::string& path) { search_paths.push_back(path); }
 std::vector<std::string> searchPaths() { return search_paths; }
-std::string searchPath(const int n) { return search_paths[n]; }
-size_t searchPathCount() { return search_paths.size(); }
+void addSearchPath(const std::string& path) { search_paths.push_back(path); }
 
 std::vector<std::string> user_search_paths;
-void addUserSearchPath(const std::string& path) { user_search_paths.push_back(path); }
 std::vector<std::string> userSearchPaths() { return user_search_paths; }
-std::string userSearchPath(const int n) { return user_search_paths[n]; }
-size_t userSearchPathCount() { return user_search_paths.size(); }
+void addUserSearchPath(const std::string& path) { user_search_paths.push_back(path); }
 
 bool canCreateDir() { return create_dir; }
 void canCreateDir(bool permission) { create_dir = permission; }

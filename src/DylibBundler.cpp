@@ -25,33 +25,34 @@ std::set<std::string> frameworks;
 std::set<std::string> rpaths;
 bool qt_plugins_called = false;
 
-void addDependency(std::string path, const std::string& dependent_file)
+void addDependency(const std::string& path, const std::string& dependent_file)
 {
-    Dependency dep(std::move(path), dependent_file);
+    Dependency dependency(path, dependent_file);
 
     // check if this library was already added to |deps| to avoid duplicates
     bool in_deps = false;
-    for (auto& n : deps) {
-        if (dep.mergeIfSameAs(n))
+    for (auto& dep : deps) {
+        if (dependency.mergeIfSameAs(dep))
             in_deps = true;
     }
 
     // check if this library was already added to |deps_per_file[dependent_file]| to avoid duplicates
     bool in_deps_per_file = false;
-    for (auto& n : deps_per_file[dependent_file]) {
-        if (dep.mergeIfSameAs(n))
+    for (auto& dep : deps_per_file[dependent_file]) {
+        if (dependency.mergeIfSameAs(dep))
             in_deps_per_file = true;
     }
 
     // check if this library is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(dep.getPrefix())) return;
+    if (!Settings::isPrefixBundled(dependency.getPrefix()))
+        return;
 
-    if (!in_deps && dep.isFramework())
-        frameworks.insert(dep.getOriginalPath());
+    if (!in_deps && dependency.isFramework())
+        frameworks.insert(dependency.getOriginalPath());
     if (!in_deps)
-        deps.push_back(dep);
+        deps.push_back(dependency);
     if (!in_deps_per_file)
-        deps_per_file[dependent_file].push_back(dep);
+        deps_per_file[dependent_file].push_back(dependency);
 }
 
 void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
@@ -72,7 +73,8 @@ void collectDependenciesForFile(const std::string& dependent_file)
     collectRpathsForFilename(dependent_file);
 
     for (const auto& line : lines) {
-        if (!Settings::isPrefixBundled(line)) continue; // skip system/ignored prefixes
+        if (!Settings::isPrefixBundled(line))
+            continue; // skip system/ignored prefixes
         addDependency(line, dependent_file);
     }
     deps_collected[dependent_file] = true;
@@ -119,12 +121,14 @@ void collectSubDependencies()
             collectRpathsForFilename(original_path);
 
             for (const auto& line : lines) {
-                if (!Settings::isPrefixBundled(line)) continue; // skip system/ignored prefixes
+                if (!Settings::isPrefixBundled(line))
+                    continue; // skip system/ignored prefixes
                 addDependency(line, original_path);
             }
         }
         // if no more dependencies were added on this iteration, stop searching
-        if (deps.size() == deps_size) break;
+        if (deps.size() == deps_size)
+            break;
     }
 
     if (Settings::verboseOutput()) {
@@ -180,17 +184,17 @@ void bundleDependencies()
     // copy & fix up dependencies
     if (Settings::bundleLibs()) {
         createDestDir();
-        for (auto& dep : deps) {
+        for (const auto& dep : deps) {
             dep.copyToAppBundle();
             changeLibPathsOnFile(dep.getInstallPath());
             fixRpathsOnFile(dep.getOriginalPath(), dep.getInstallPath());
         }
     }
     // fix up selected files
-    const auto files_to_fix = Settings::filesToFix();
-    for (const auto& file_to_fix : files_to_fix) {
-        changeLibPathsOnFile(file_to_fix);
-        fixRpathsOnFile(file_to_fix, file_to_fix);
+    const auto files = Settings::filesToFix();
+    for (const auto& file : files) {
+        changeLibPathsOnFile(file);
+        fixRpathsOnFile(file, file);
     }
 }
 

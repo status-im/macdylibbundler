@@ -42,7 +42,7 @@ bool mkdir(const std::string& path);
 
 void createDestDir();
 
-std::string getUserInputDirForFile(const std::string& filename);
+std::string getUserInputDirForFile(const std::string& filename, const std::string& dependent_file);
 
 void parseLoadCommands(const std::string& file, const std::string& cmd, const std::string& value, std::vector<std::string>& lines);
 
