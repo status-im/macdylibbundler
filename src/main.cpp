@@ -4,7 +4,6 @@
 #include <iostream>
 #include <vector>
 
-#include <string.h>
 #ifndef __clang__
 #include <sys/types.h>
 #endif
@@ -125,13 +124,12 @@ int main(int argc, const char* argv[])
 
     std::cout << "Collecting dependencies...\n";
 
-    const size_t files_count = Settings::filesToFixCount();
-
-    for (size_t j=0; j<files_count; ++j)
-        collectDependenciesForFile(Settings::fileToFix(j));
-
+    const std::vector<std::string> files_to_fix = Settings::filesToFix();
+    for (const auto& file_to_fix : files_to_fix) {
+        collectDependenciesForFile(file_to_fix);
+    }
     collectSubDependencies();
-    doneWithDeps_go();
+    bundleDependencies();
 
     return 0;
 }

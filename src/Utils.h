@@ -19,9 +19,9 @@ void rtrim_in_place(std::string& s);
 // trim from end (copying)
 std::string rtrim(std::string s);
 
-// executes a command in the native shell and returns output in string
+// execute a command in the native shell and return output in string
 std::string systemOutput(const std::string& cmd);
-// like 'system', runs a command on the system shell, but also prints the command to stdout.
+// run a command in the system shell (like 'system') but also print the command to stdout
 int systemp(const std::string& cmd);
 
 void tokenize(const std::string& str, const char* delimiters, std::vector<std::string>*);

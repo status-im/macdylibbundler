@@ -8,30 +8,27 @@
 
 class Dependency {
 public:
-    Dependency(std::string path, std::string dependent_file);
+    Dependency(std::string path, const std::string& dependent_file);
 
-    std::string getOriginalFileName() const { return filename; }
-    std::string getOriginalPath() const { return prefix + filename; }
+    [[nodiscard]] bool isFramework() const { return is_framework; }
 
-    std::string getInstallPath();
-    std::string getInnerPath();
+    [[nodiscard]] std::string getPrefix() const { return prefix; }
+    [[nodiscard]] std::string getOriginalFileName() const { return filename; }
+    [[nodiscard]] std::string getOriginalPath() const { return prefix + filename; }
 
-    bool isFramework() { return is_framework; }
+    [[nodiscard]] std::string getInstallPath() const;
+    [[nodiscard]] std::string getInnerPath() const;
 
-    void addSymlink(std::string s);
-    size_t symlinksCount() const { return symlinks.size(); }
+    void print() const;
 
-    std::string getSymlink(int i) const { return symlinks[i]; }
-    std::string getPrefix() const { return prefix; }
+    void addSymlink(const std::string& s);
 
     // Compare the given dependency with this one. If both refer to the same file,
     // merge both entries into one and return true.
     bool mergeIfSameAs(Dependency& dep2);
 
-    void print();
-
-    void copyYourself();
-    void fixFileThatDependsOnMe(std::string file);
+    void copyToAppBundle() const;
+    void fixDependentFiles(const std::string& file) const;
 
 private:
     bool is_framework;
@@ -43,6 +40,8 @@ private:
 
     // installation
     std::string new_name;
+
+    void print();
 };
 
 #endif

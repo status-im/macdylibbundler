@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-void addDependency(std::string path, std::string dependent_file);
+void addDependency(std::string path, const std::string& dependent_file);
 
 // std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file);
 // std::string searchFilenameInRpaths(const std::string& rpath_file);
@@ -22,11 +22,11 @@ void collectRpathsForFilename(const std::string& filename);
 // recursively collect each dependency's dependencies
 void collectSubDependencies();
 
-void changeLibPathsOnFile(std::string file_to_fix);
+void changeLibPathsOnFile(const std::string& file_to_fix);
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix);
 
-void doneWithDeps_go();
+void bundleDependencies();
 
-void copyQtPlugins();
+void bundleQtPlugins();
 
 #endif

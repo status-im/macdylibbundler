@@ -1,27 +1,19 @@
 #include "Dependency.h"
 
 #include <algorithm>
-#include <cctype>
-#include <cstdio>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
-#include <locale>
-#include <sstream>
-#include <vector>
 
-// #include <stdlib.h>
 #include <sys/param.h>
-// #include <sys/stat.h>
 #ifndef __clang__
 #include <sys/types.h>
 #endif
-#include <unistd.h>
 
 #include "Settings.h"
 #include "Utils.h"
 
-Dependency::Dependency(std::string path, std::string dependent_file) : is_framework(false)
+Dependency::Dependency(std::string path, const std::string& dependent_file) : is_framework(false)
 {
     char original_file_buffer[PATH_MAX];
     std::string original_file;
@@ -60,8 +52,7 @@ Dependency::Dependency(std::string path, std::string dependent_file) : is_framew
         prefix += "/";
 
     // check if this dependency is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(prefix))
-        return;
+    if (!Settings::isPrefixBundled(prefix)) return;
 
     if (original_file.find(".framework") != std::string::npos) {
         is_framework = true;
@@ -71,9 +62,9 @@ Dependency::Dependency(std::string path, std::string dependent_file) : is_framew
         prefix = filePrefix(framework_root);
         filename = framework_name + "/" + framework_path;
         if (Settings::verboseOutput()) {
-            std::cout << "framework root: " << framework_root << std::endl;
-            std::cout << "framework path: " << framework_path << std::endl;
-            std::cout << "framework name: " << framework_name << std::endl;
+            std::cout << "  framework root: " << framework_root << std::endl;
+            std::cout << "  framework path: " << framework_path << std::endl;
+            std::cout << "  framework name: " << framework_name << std::endl;
         }
     }
 
@@ -113,17 +104,25 @@ Dependency::Dependency(std::string path, std::string dependent_file) : is_framew
     new_name = filename;
 }
 
-std::string Dependency::getInstallPath()
+std::string Dependency::getInstallPath() const
 {
     return Settings::destFolder() + new_name;
 }
 
-std::string Dependency::getInnerPath()
+std::string Dependency::getInnerPath() const
 {
     return Settings::insideLibPath() + new_name;
 }
 
-void Dependency::addSymlink(std::string s)
+void Dependency::print() const
+{
+    std::cout << "\n* " << filename << " from " << prefix << std::endl;
+    for (const auto& symlink : symlinks) {
+        std::cout << "    symlink --> " << symlink << std::endl;
+    }
+}
+
+void Dependency::addSymlink(const std::string& s)
 {
     if (std::find(symlinks.begin(), symlinks.end(), s) == symlinks.end())
         symlinks.push_back(s);
@@ -131,25 +130,16 @@ void Dependency::addSymlink(std::string s)
 
 bool Dependency::mergeIfSameAs(Dependency& dep2)
 {
-    if (dep2.getOriginalFileName().compare(filename) == 0) {
-        for (size_t n=0; n<symlinks.size(); ++n) {
-            dep2.addSymlink(symlinks[n]);
+    if (dep2.getOriginalFileName() == filename) {
+        for (const auto& symlink : symlinks) {
+            dep2.addSymlink(symlink);
         }
         return true;
     }
     return false;
 }
 
-void Dependency::print()
-{
-    std::cout << "\n* " << filename << " from " << prefix << std::endl;
-
-    for (size_t n=0; n<symlinks.size(); ++n) {
-        std::cout << "    symlink --> " << symlinks[n] << std::endl;
-    }
-}
-
-void Dependency::copyYourself()
+void Dependency::copyToAppBundle() const
 {
     std::string original_path = getOriginalPath();
     std::string dest_path = getInstallPath();
@@ -161,10 +151,10 @@ void Dependency::copyYourself()
 
     if (Settings::verboseOutput()) {
         std::string inner_path = getInnerPath();
-        std::cout << "original path: " << original_path << std::endl;
-        std::cout << "inner path:    " << inner_path << std::endl;
-        std::cout << "dest_path:     " << dest_path << std::endl;
-        std::cout << "install path:  " << getInstallPath() << std::endl;
+        std::cout << "  - original path: " << original_path << std::endl;
+        std::cout << "  - inner path:    " << inner_path << std::endl;
+        std::cout << "  - dest_path:     " << dest_path << std::endl;
+        std::cout << "  - install path:  " << getInstallPath() << std::endl;
     }
 
     copyFile(original_path, dest_path);
@@ -172,13 +162,8 @@ void Dependency::copyYourself()
     if (is_framework) {
         std::string headers_path = dest_path + std::string("/Headers");
         char buffer[PATH_MAX];
-
         if (realpath(rtrim(headers_path).c_str(), buffer))
             headers_path = buffer;
-
-        if (Settings::verboseOutput())
-            std::cout << "headers path:  " << headers_path << std::endl;
-
         deleteFile(headers_path, true);
         deleteFile(dest_path + "/*.prl");
     }
@@ -186,17 +171,17 @@ void Dependency::copyYourself()
     changeId(getInstallPath(), "@rpath/"+new_name);
 }
 
-void Dependency::fixFileThatDependsOnMe(std::string file_to_fix)
+void Dependency::fixDependentFiles(const std::string& file) const
 {
-    changeInstallName(file_to_fix, getOriginalPath(), getInnerPath());
-    for (size_t n=0; n<symlinks.size(); ++n) {
-        changeInstallName(file_to_fix, symlinks[n], getInnerPath());
+    changeInstallName(file, getOriginalPath(), getInnerPath());
+    for (const auto& symlink : symlinks) {
+        changeInstallName(file, symlink, getInnerPath());
     }
 
     if (Settings::missingPrefixes()) {
-        changeInstallName(file_to_fix, filename, getInnerPath());
-        for (size_t n=0; n<symlinks.size(); ++n) {
-            changeInstallName(file_to_fix, symlinks[n], getInnerPath());
+        changeInstallName(file, filename, getInnerPath());
+        for (const auto& symlink : symlinks) {
+            changeInstallName(file, symlink, getInnerPath());
         }
     }
 }

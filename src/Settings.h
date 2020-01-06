@@ -12,8 +12,8 @@
 
 namespace Settings {
 
-bool isPrefixBundled(std::string prefix);
-bool isPrefixIgnored(std::string prefix);
+bool isPrefixBundled(const std::string& prefix);
+bool isPrefixIgnored(const std::string& prefix);
 void ignorePrefix(std::string prefix);
 
 bool appBundleProvided();
@@ -36,11 +36,13 @@ size_t filesToFixCount();
 std::string insideLibPath();
 void insideLibPath(std::string p);
 
-void addSearchPath(std::string path);
+void addSearchPath(const std::string& path);
+std::vector<std::string> searchPaths();
 std::string searchPath(int n);
 size_t searchPathCount();
 
-void addUserSearchPath(std::string path);
+void addUserSearchPath(const std::string& path);
+std::vector<std::string> userSearchPaths();
 std::string userSearchPath(int n);
 size_t userSearchPathCount();
 
@@ -79,5 +81,3 @@ bool fileHasRpath(const std::string& file);
 } // namespace Settings
 
 #endif
-
-std::string stripLSlash(const std::string& in);

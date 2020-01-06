@@ -1,11 +1,11 @@
 #include "DylibBundler.h"
 
-#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <map>
 #include <numeric>
 #include <set>
+#include <utility>
 
 #ifdef __linux
 #include <linux/limits.h>
@@ -25,34 +25,31 @@ std::set<std::string> frameworks;
 std::set<std::string> rpaths;
 bool qt_plugins_called = false;
 
-void addDependency(std::string path, std::string dependent_file)
+void addDependency(std::string path, const std::string& dependent_file)
 {
-    Dependency dep(path, dependent_file);
+    Dependency dep(std::move(path), dependent_file);
 
     // check if this library was already added to |deps| to avoid duplicates
     bool in_deps = false;
-    for (size_t n=0; n<deps.size(); ++n) {
-        if (dep.mergeIfSameAs(deps[n]))
+    for (auto& n : deps) {
+        if (dep.mergeIfSameAs(n))
             in_deps = true;
     }
 
     // check if this library was already added to |deps_per_file[dependent_file]| to avoid duplicates
     bool in_deps_per_file = false;
-    for (size_t n=0; n<deps_per_file[dependent_file].size(); ++n) {
-        if (dep.mergeIfSameAs(deps_per_file[dependent_file][n]))
+    for (auto& n : deps_per_file[dependent_file]) {
+        if (dep.mergeIfSameAs(n))
             in_deps_per_file = true;
     }
 
     // check if this library is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(dep.getPrefix()))
-        return;
+    if (!Settings::isPrefixBundled(dep.getPrefix())) return;
 
     if (!in_deps && dep.isFramework())
         frameworks.insert(dep.getOriginalPath());
-
     if (!in_deps)
         deps.push_back(dep);
-
     if (!in_deps_per_file)
         deps_per_file[dependent_file].push_back(dep);
 }
@@ -74,10 +71,9 @@ void collectDependenciesForFile(const std::string& dependent_file)
     collectDependenciesForFile(dependent_file, lines);
     collectRpathsForFilename(dependent_file);
 
-    for (size_t i=0; i<lines.size(); ++i) {
-        if (!Settings::isPrefixBundled(lines[i]))
-            continue; // skip system/ignored prefixes
-        addDependency(lines[i], dependent_file);
+    for (const auto& line : lines) {
+        if (!Settings::isPrefixBundled(line)) continue; // skip system/ignored prefixes
+        addDependency(line, dependent_file);
     }
     deps_collected[dependent_file] = true;
 }
@@ -122,16 +118,13 @@ void collectSubDependencies()
             collectDependenciesForFile(original_path, lines);
             collectRpathsForFilename(original_path);
 
-            for (size_t i=0; i<lines.size(); ++i) {
-                if (!Settings::isPrefixBundled(lines[i]))
-                    continue; // skip system/ignored prefixes
-                addDependency(lines[i], original_path);
+            for (const auto& line : lines) {
+                if (!Settings::isPrefixBundled(line)) continue; // skip system/ignored prefixes
+                addDependency(line, original_path);
             }
         }
         // if no more dependencies were added on this iteration, stop searching
-        if (deps.size() == deps_size) {
-            break;
-        }
+        if (deps.size() == deps_size) break;
     }
 
     if (Settings::verboseOutput()) {
@@ -140,11 +133,11 @@ void collectSubDependencies()
     }
     if (Settings::bundleLibs() && Settings::bundleFrameworks()) {
         if (!qt_plugins_called || (deps.size() != dep_counter))
-            copyQtPlugins();
+            bundleQtPlugins();
     }
 }
 
-void changeLibPathsOnFile(std::string file_to_fix)
+void changeLibPathsOnFile(const std::string& file_to_fix)
 {
     if (deps_collected.find(file_to_fix) == deps_collected.end())
         collectDependenciesForFile(file_to_fix);
@@ -153,7 +146,7 @@ void changeLibPathsOnFile(std::string file_to_fix)
 
     const size_t dep_amount = deps_per_file[file_to_fix].size();
     for (size_t n=0; n<dep_amount; ++n) {
-        deps_per_file[file_to_fix][n].fixFileThatDependsOnMe(file_to_fix);
+        deps_per_file[file_to_fix][n].fixDependentFiles(file_to_fix);
     }
 }
 
@@ -163,12 +156,9 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
     if (Settings::fileHasRpath(original_file))
         rpaths_to_fix = Settings::getRpathsForFile(original_file);
 
-    for (size_t i=0; i < rpaths_to_fix.size(); ++i) {
-        std::string command =
-            std::string("install_name_tool -rpath ")
-                + rpaths_to_fix[i] + " "
-                + Settings::insideLibPath() + " "
-                + file_to_fix;
+    for (const auto& i : rpaths_to_fix) {
+        std::string command = std::string("install_name_tool -rpath ");
+        command += i + " " + Settings::insideLibPath() + " " + file_to_fix;
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
             exit(1);
@@ -176,36 +166,35 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
     }
 }
 
-void doneWithDeps_go()
+void bundleDependencies()
 {
-    const size_t deps_size = deps.size();
-    for (size_t n=0; n<deps_size; ++n) {
-        deps[n].print();
+    for (const auto& dep : deps) {
+        dep.print();
     }
     std::cout << "\n";
     if (Settings::verboseOutput()) {
-        for (std::set<std::string>::iterator it = rpaths.begin(); it != rpaths.end(); ++it) {
-            std::cout << "rpaths: " << *it << std::endl;
+        for (const auto& rpath : rpaths) {
+            std::cout << "rpaths: " << rpath << std::endl;
         }
     }
     // copy & fix up dependencies
     if (Settings::bundleLibs()) {
         createDestDir();
-        for (size_t n=0; n<deps_size; ++n) {
-            deps[n].copyYourself();
-            changeLibPathsOnFile(deps[n].getInstallPath());
-            fixRpathsOnFile(deps[n].getOriginalPath(), deps[n].getInstallPath());
+        for (auto& dep : deps) {
+            dep.copyToAppBundle();
+            changeLibPathsOnFile(dep.getInstallPath());
+            fixRpathsOnFile(dep.getOriginalPath(), dep.getInstallPath());
         }
     }
     // fix up selected files
-    const size_t filesToFixSize = Settings::filesToFix().size();
-    for (size_t j=0; j<filesToFixSize; ++j) {
-        changeLibPathsOnFile(Settings::fileToFix(j));
-        fixRpathsOnFile(Settings::fileToFix(j), Settings::fileToFix(j));
+    const auto files_to_fix = Settings::filesToFix();
+    for (const auto& file_to_fix : files_to_fix) {
+        changeLibPathsOnFile(file_to_fix);
+        fixRpathsOnFile(file_to_fix, file_to_fix);
     }
 }
 
-void copyQtPlugins()
+void bundleQtPlugins()
 {
     bool qtCoreFound = false;
     bool qtGuiFound = false;
@@ -221,12 +210,13 @@ void copyQtPlugins()
     bool qtWebViewFound = false;
     std::string original_file;
 
-    for (std::set<std::string>::iterator it = frameworks.begin(); it != frameworks.end(); ++it) {
-        std::string framework = *it;
+    for (const auto& framework : frameworks) {
         if (framework.find("QtCore") != std::string::npos) {
             qtCoreFound = true;
             original_file = framework;
         }
+        if (framework.find("QtGui") != std::string::npos)
+            qtGuiFound = true;
         if (framework.find("QtNetwork") != std::string::npos)
             qtNetworkFound = true;
         if (framework.find("QtSql") != std::string::npos)
@@ -255,7 +245,7 @@ void copyQtPlugins()
         createQtConf(Settings::resourcesFolder());
     qt_plugins_called = true;
 
-    const auto fixupPlugin = [original_file](std::string plugin) {
+    const auto fixupPlugin = [original_file](const std::string& plugin) {
         std::string dest = Settings::pluginsFolder();
         std::string framework_root = getFrameworkRoot(original_file);
         std::string prefix = filePrefix(framework_root);
@@ -316,5 +306,6 @@ void copyQtPlugins()
         fixupPlugin("texttospeech");
     if (qtWebViewFound)
         fixupPlugin("webview");
+
     collectSubDependencies();
 }
