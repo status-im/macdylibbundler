@@ -235,10 +235,10 @@ void DylibBundler::bundleQtPlugins()
         if (fileExists(qt_plugins_prefix + plugin)) {
             mkdir(dest + plugin);
             copyFile(qt_plugins_prefix + plugin, dest);
-            std::vector<std::string> files = lsDir(dest + plugin+"/");
+            std::vector<std::string> files = lsDir(dest + plugin + "/");
             for (const auto& file : files) {
-                std::string file_to_fix = dest.append(plugin).append("/").append(file);
-                std::string new_rpath = std::string("@rpath/").append(plugin).append("/").append(file);
+                std::string file_to_fix = dest + plugin + "/" + file;
+                std::string new_rpath = std::string("@rpath/") + plugin + "/" + file;
                 addFileToFix(file_to_fix);
                 collectDependenciesRpaths(file_to_fix);
                 changeId(file_to_fix, new_rpath);
