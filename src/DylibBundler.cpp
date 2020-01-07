@@ -12,6 +12,7 @@
 #include <linux/limits.h>
 #endif
 
+#include "ParallelForEach.h"
 #include "Dependency.h"
 #include "Utils.h"
 
@@ -161,18 +162,18 @@ void DylibBundler::bundleDependencies()
     // copy & fix up dependencies
     if (bundleLibs()) {
         createDestDir();
-        for (const auto& dep : deps) {
+        parallel_for_each(deps.begin(), deps.end(), [&](Dependency* dep) {
             dep->CopyToBundle();
             changeLibPathsOnFile(dep->InstallPath());
             fixRpathsOnFile(dep->OriginalPath(), dep->InstallPath());
-        }
+        });
     }
     // fix up input files
     const auto files = filesToFix();
-    for (const auto& file : files) {
+    parallel_for_each(files.begin(), files.end(), [&](const std::string& file) {
         changeLibPathsOnFile(file);
         fixRpathsOnFile(file, file);
-    }
+    });
 }
 
 void DylibBundler::bundleQtPlugins()

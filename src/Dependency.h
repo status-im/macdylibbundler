@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-//#include "DylibBundler.h"
-
 class DylibBundler;
 
 class Dependency {
