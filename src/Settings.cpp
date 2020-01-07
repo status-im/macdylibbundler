@@ -8,28 +8,27 @@
 
 #include "Utils.h"
 
-namespace Settings {
+Settings::Settings() : overwrite_files(false),
+                       overwrite_dir(false),
+                       create_dir(false),
+                       quiet_output(false),
+                       verbose_output(false),
+                       bundle_libs(true),
+                       bundle_frameworks(false),
+                       missing_prefixes(false),
+                       dest_folder_str("./libs/"),
+                       dest_folder_str_app("./Frameworks/"),
+                       inside_path_str("@executable_path/../libs/"),
+                       inside_path_str_app("@executable_path/../Frameworks/")
+{
+    dest_folder = dest_folder_str;
+    dest_path = dest_folder;
+    inside_path = inside_path_str;
+}
 
-bool overwrite_files = false;
-bool overwrite_dir = false;
-bool create_dir = false;
-bool quiet_output = false;
-bool verbose_output = false;
-bool bundle_libs = true;
-bool bundle_frameworks = false;
+Settings::~Settings() = default;
 
-std::string dest_folder_str = "./libs/";
-std::string dest_folder_str_app = "./Frameworks/";
-std::string dest_folder = dest_folder_str;
-std::string dest_path = dest_folder;
-
-std::string inside_path_str = "@executable_path/../libs/";
-std::string inside_path_str_app = "@executable_path/../Frameworks/";
-std::string inside_path = inside_path_str;
-
-std::string app_bundle;
-std::string appBundle() { return app_bundle; }
-void appBundle(std::string path)
+void Settings::appBundle(std::string path)
 {
     app_bundle = std::move(path);
     char buffer[PATH_MAX];
@@ -55,10 +54,8 @@ void appBundle(std::string path)
     if (dest_path[dest_path.size()-1] != '/')
         dest_path += "/";
 }
-bool appBundleProvided() { return !app_bundle.empty(); }
 
-std::string destFolder() { return dest_path; }
-void destFolder(std::string path)
+void Settings::destFolder(std::string path)
 {
     dest_path = std::move(path);
     if (appBundleProvided())
@@ -70,21 +67,15 @@ void destFolder(std::string path)
         dest_path += "/";
 }
 
-std::string insideLibPath() { return inside_path; }
-void insideLibPath(std::string p)
+
+void Settings::insideLibPath(std::string p)
 {
     inside_path = std::move(p);
     if (inside_path[inside_path.size()-1] != '/')
         inside_path += "/";
 }
 
-std::string executableFolder() { return app_bundle + "Contents/MacOS/"; }
-std::string frameworksFolder() { return app_bundle + "Contents/Frameworks/"; }
-std::string pluginsFolder() { return app_bundle + "Contents/PlugIns/"; }
-std::string resourcesFolder() { return app_bundle + "Contents/Resources/"; }
-
-std::vector<std::string> files;
-void addFileToFix(std::string path)
+void Settings::addFileToFix(std::string path)
 {
     char buffer[PATH_MAX];
     if (realpath(path.c_str(), buffer))
@@ -92,17 +83,14 @@ void addFileToFix(std::string path)
     files.push_back(path);
 }
 
-std::vector<std::string> filesToFix() { return files; }
-size_t filesToFixCount() { return files.size(); }
-
-std::vector<std::string> prefixes_to_ignore;
-void ignorePrefix(std::string prefix)
+void Settings::ignorePrefix(std::string prefix)
 {
     if (prefix[prefix.size()-1] != '/')
         prefix += "/";
     prefixes_to_ignore.push_back(prefix);
 }
-bool isPrefixIgnored(const std::string& prefix)
+
+bool Settings::isPrefixIgnored(const std::string& prefix)
 {
     for (const auto& prefix_to_ignore : prefixes_to_ignore) {
         if (prefix == prefix_to_ignore)
@@ -111,7 +99,7 @@ bool isPrefixIgnored(const std::string& prefix)
     return false;
 }
 
-bool isPrefixBundled(const std::string& prefix)
+bool Settings::isPrefixBundled(const std::string& prefix)
 {
     if (!bundle_frameworks && prefix.find(".framework") != std::string::npos)
         return false;
@@ -125,49 +113,3 @@ bool isPrefixBundled(const std::string& prefix)
         return false;
     return true;
 }
-
-std::vector<std::string> search_paths;
-std::vector<std::string> searchPaths() { return search_paths; }
-void addSearchPath(const std::string& path) { search_paths.push_back(path); }
-
-std::vector<std::string> user_search_paths;
-std::vector<std::string> userSearchPaths() { return user_search_paths; }
-void addUserSearchPath(const std::string& path) { user_search_paths.push_back(path); }
-
-bool canCreateDir() { return create_dir; }
-void canCreateDir(bool permission) { create_dir = permission; }
-
-bool canOverwriteDir() { return overwrite_dir; }
-void canOverwriteDir(bool permission) { overwrite_dir = permission; }
-
-bool canOverwriteFiles() { return overwrite_files; }
-void canOverwriteFiles(bool permission) { overwrite_files = permission; }
-
-bool bundleLibs() { return bundle_libs; }
-void bundleLibs(bool status) { bundle_libs = status; }
-
-bool bundleFrameworks() { return bundle_frameworks; }
-void bundleFrameworks(bool status) { bundle_frameworks = status; }
-
-bool quietOutput() { return quiet_output; }
-void quietOutput(bool status) { quiet_output = status; }
-
-bool verboseOutput() { return verbose_output; }
-void verboseOutput(bool status) { verbose_output = status; }
-
-// if some libs are missing prefixes, then more stuff will be necessary to do
-bool missing_prefixes = false;
-bool missingPrefixes() { return missing_prefixes; }
-void missingPrefixes(bool status) { missing_prefixes = status; }
-
-std::map<std::string, std::string> rpath_to_fullpath;
-std::string getFullPath(const std::string& rpath) { return rpath_to_fullpath[rpath]; }
-void rpathToFullPath(const std::string& rpath, const std::string& fullpath) { rpath_to_fullpath[rpath] = fullpath; }
-bool rpathFound(const std::string& rpath) { return rpath_to_fullpath.find(rpath) != rpath_to_fullpath.end(); }
-
-std::map<std::string, std::vector<std::string>> rpaths_per_file;
-std::vector<std::string> getRpathsForFile(const std::string& file) { return rpaths_per_file[file]; }
-void addRpathForFile(const std::string& file, const std::string& rpath) { rpaths_per_file[file].push_back(rpath); }
-bool fileHasRpath(const std::string& file) { return rpaths_per_file.find(file) != rpaths_per_file.end(); }
-
-} // namespace Settings

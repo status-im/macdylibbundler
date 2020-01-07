@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -9,7 +8,6 @@
 #endif
 
 #include "DylibBundler.h"
-#include "Settings.h"
 
 const std::string VERSION = "2.1.0 (2020-01-04)";
 
@@ -36,65 +34,66 @@ void showHelp()
 
 int main(int argc, const char* argv[])
 {
+    DylibBundler* db = new DylibBundler();
     // parse arguments
     for (int i=0; i<argc; i++) {
         if (strcmp(argv[i],"-a") == 0 || strcmp(argv[i],"--app") == 0) {
             i++;
-            Settings::appBundle(argv[i]);
+            db->appBundle(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-x") == 0 || strcmp(argv[i],"--fix-file") == 0) {
             i++;
-            Settings::addFileToFix(argv[i]);
+            db->addFileToFix(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-f") == 0 || strcmp(argv[i],"--bundle-frameworks") == 0) {
-            Settings::bundleFrameworks(true);
+            db->bundleFrameworks(true);
             continue;
         }
         else if (strcmp(argv[i],"-d") == 0 || strcmp(argv[i],"--dest-dir") == 0) {
             i++;
-            Settings::destFolder(argv[i]);
+            db->destFolder(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-p") == 0 || strcmp(argv[i],"--install-path") == 0) {
             i++;
-            Settings::insideLibPath(argv[i]);
+            db->insideLibPath(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-s") == 0 || strcmp(argv[i],"--search-path") == 0) {
             i++;
-            Settings::addUserSearchPath(argv[i]);
+            db->addUserSearchPath(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-i") == 0 || strcmp(argv[i],"--ignore") == 0) {
             i++;
-            Settings::ignorePrefix(argv[i]);
+            db->ignorePrefix(argv[i]);
             continue;
         }
         else if (strcmp(argv[i],"-of") == 0 || strcmp(argv[i],"--overwrite-files") == 0) {
-            Settings::canOverwriteFiles(true);
+            db->canOverwriteFiles(true);
             continue;
         }
         else if (strcmp(argv[i],"-cd") == 0 || strcmp(argv[i],"--create-dir") == 0) {
-            Settings::canCreateDir(true);
+            db->canCreateDir(true);
             continue;
         }
         else if (strcmp(argv[i],"-od") == 0 || strcmp(argv[i],"--overwrite-dir") == 0) {
-            Settings::canOverwriteDir(true);
-            Settings::canCreateDir(true);
+            db->canOverwriteDir(true);
+            db->canCreateDir(true);
             continue;
         }
         else if (strcmp(argv[i],"-n") == 0 || strcmp(argv[i],"--just-print") == 0) {
-            Settings::bundleLibs(false);
+            db->bundleLibs(false);
             continue;
         }
         else if (strcmp(argv[i],"-q") == 0 || strcmp(argv[i],"--quiet") == 0) {
-            Settings::quietOutput(true);
+            db->quietOutput(true);
             continue;
         }
         else if (strcmp(argv[i],"-v") == 0 || strcmp(argv[i],"--verbose") == 0) {
-            Settings::verboseOutput(true);
+            db->verboseOutput(true);
             continue;
         }
         else if (strcmp(argv[i],"-b") == 0 || strcmp(argv[i],"--bundle-libs") == 0) {
@@ -117,19 +116,19 @@ int main(int argc, const char* argv[])
         }
     }
 
-    if (Settings::filesToFixCount() < 1) {
+    if (db->filesToFixCount() < 1) {
         showHelp();
         exit(0);
     }
 
     std::cout << "Collecting dependencies...\n";
 
-    const std::vector<std::string> files_to_fix = Settings::filesToFix();
+    const std::vector<std::string> files_to_fix = db->filesToFix();
     for (const auto& file_to_fix : files_to_fix) {
-        collectDependencies(file_to_fix);
+        db->collectDependencies(file_to_fix);
     }
-    collectSubDependencies();
-    bundleDependencies();
+    db->collectSubDependencies();
+    db->bundleDependencies();
 
     return 0;
 }

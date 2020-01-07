@@ -8,9 +8,9 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 string(REPLACE "-O3" "-O2" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
-#string(REPLACE "-std=c++1z" "-std=c++2a" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 
 add_compile_options(-pipe -Wall -Wextra -Wpedantic)
+add_link_options(-Wl,-dead_strip)
 
 include_directories(src)
 

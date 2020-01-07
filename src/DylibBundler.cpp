@@ -4,7 +4,9 @@
 #include <iostream>
 #include <map>
 #include <numeric>
+#include <regex>
 #include <set>
+#include <sstream>
 #include <utility>
 
 #ifdef __linux
@@ -15,50 +17,48 @@
 #endif
 
 #include "Dependency.h"
-#include "Settings.h"
 #include "Utils.h"
 
-std::vector<Dependency> deps;
-std::map<std::string, std::vector<Dependency>> deps_per_file;
-std::map<std::string, bool> deps_collected;
-std::set<std::string> frameworks;
-std::set<std::string> rpaths;
-std::map<std::string, bool> rpaths_collected;
-bool qt_plugins_called = false;
-
-void addDependency(const std::string& path, const std::string& dependent_file)
+DylibBundler::DylibBundler() : qt_plugins_called(false)
 {
-    Dependency dependency(path, dependent_file);
+
+}
+
+DylibBundler::~DylibBundler() = default;
+
+void DylibBundler::addDependency(const std::string& path, const std::string& dependent_file)
+{
+    Dependency* dependency = new Dependency(path, dependent_file, this);
 
     // check if this library was already added to |deps| to avoid duplicates
     bool in_deps = false;
     for (auto& dep : deps) {
-        if (dependency.MergeIfIdentical(dep))
+        if (dependency->MergeIfIdentical(dep))
             in_deps = true;
     }
 
     // check if this library was already added to |deps_per_file[dependent_file]| to avoid duplicates
     bool in_deps_per_file = false;
     for (auto& dep : deps_per_file[dependent_file]) {
-        if (dependency.MergeIfIdentical(dep))
+        if (dependency->MergeIfIdentical(dep))
             in_deps_per_file = true;
     }
 
     // check if this library is in /usr/lib, /System/Library, or in ignored list
-    if (!Settings::isPrefixBundled(dependency.Prefix()))
+    if (!this->isPrefixBundled(dependency->Prefix()))
         return;
 
-    if (!in_deps && dependency.IsFramework())
-        frameworks.insert(dependency.OriginalPath());
+    if (!in_deps && dependency->IsFramework())
+        frameworks.insert(dependency->OriginalPath());
     if (!in_deps)
         deps.push_back(dependency);
     if (!in_deps_per_file)
         deps_per_file[dependent_file].push_back(dependency);
 }
 
-void collectDependencies(const std::string& dependent_file)
+void DylibBundler::collectDependencies(const std::string& dependent_file)
 {
-    if (deps_collected.find(dependent_file) != deps_collected.end() && Settings::fileHasRpath(dependent_file))
+    if (deps_collected.find(dependent_file) != deps_collected.end() && fileHasRpath(dependent_file))
         return;
 
     std::map<std::string,std::string> cmds_values;
@@ -74,8 +74,8 @@ void collectDependencies(const std::string& dependent_file)
         auto rpath_results = cmds_results[rpath];
         for (const auto& rpath_result : rpath_results) {
             rpaths.insert(rpath_result);
-            Settings::addRpathForFile(dependent_file, rpath_result);
-            if (Settings::verboseOutput())
+            addRpathForFile(dependent_file, rpath_result);
+            if (verboseOutput())
                 std::cout << "  rpath: " << rpath_result << std::endl;
         }
         rpaths_collected[dependent_file] = true;
@@ -85,52 +85,18 @@ void collectDependencies(const std::string& dependent_file)
         auto dylib_results = cmds_results[dylib];
         for (const auto& dylib_result : dylib_results) {
             // skip system/ignored prefixes
-            if (Settings::isPrefixBundled(dylib_result))
+            if (isPrefixBundled(dylib_result))
                 addDependency(dylib_result, dependent_file);
         }
         deps_collected[dependent_file] = true;
     }
 }
 
-//void collectDependencies(const std::string& dependent_file, std::vector<std::string>& lines)
-//{
-//    if (deps_collected.find(dependent_file) == deps_collected.end())
-//        parseLoadCommands(dependent_file, std::string("LC_LOAD_DYLIB"), std::string("name"), lines);
-//}
-
-//void collectDependencies(const std::string& dependent_file)
-//{
-//    std::vector<std::string> lines;
-//    collectDependencies(dependent_file, lines);
-//    collectRpaths(dependent_file);
-//
-//    for (const auto& line : lines) {
-//        if (!Settings::isPrefixBundled(line))
-//            continue; // skip system/ignored prefixes
-//        addDependency(line, dependent_file);
-//    }
-//    deps_collected[dependent_file] = true;
-//}
-
-//void collectRpaths(const std::string& filename)
-//{
-//    if (!Settings::fileHasRpath(filename)) {
-//        std::vector<std::string> lines;
-//        parseLoadCommands(filename, std::string("LC_RPATH"), std::string("path"), lines);
-//        for (const auto &line : lines) {
-//            rpaths.insert(line);
-//            Settings::addRpathForFile(filename, line);
-//            if (Settings::verboseOutput())
-//                std::cout << "  rpath: " << line << std::endl;
-//        }
-//    }
-//}
-
-void collectSubDependencies()
+void DylibBundler::collectSubDependencies()
 {
     size_t dep_counter = deps.size();
-    if (Settings::verboseOutput()) {
-        std::cout << "(pre sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    if (verboseOutput()) {
+        std::cout << "(pre sub) # OF FILES: " << filesToFixCount() << std::endl;
         std::cout << "(pre sub) # OF DEPS: " << deps.size() << std::endl;
     }
 
@@ -138,21 +104,11 @@ void collectSubDependencies()
     while (true) {
         deps_size = deps.size();
         for (size_t n=0; n<deps_size; ++n) {
-            std::string original_path = deps[n].OriginalPath();
-            if (Settings::verboseOutput())
+            std::string original_path = deps[n]->OriginalPath();
+            if (verboseOutput())
                 std::cout << "  (collect sub deps) original path: " << original_path << std::endl;
             if (isRpath(original_path))
                 original_path = searchFilenameInRpaths(original_path);
-
-//            std::vector<std::string> lines;
-//            collectDependencies(original_path, lines);
-//            collectRpaths(original_path);
-//
-//            for (const auto& line : lines) {
-//                if (!Settings::isPrefixBundled(line))
-//                    continue; // skip system/ignored prefixes
-//                addDependency(line, original_path);
-//            }
 
             collectDependencies(original_path);
         }
@@ -161,39 +117,39 @@ void collectSubDependencies()
             break;
     }
 
-    if (Settings::verboseOutput()) {
-        std::cout << "(post sub) # OF FILES: " << Settings::filesToFixCount() << std::endl;
+    if (verboseOutput()) {
+        std::cout << "(post sub) # OF FILES: " << filesToFixCount() << std::endl;
         std::cout << "(post sub) # OF DEPS: " << deps.size() << std::endl;
     }
-    if (Settings::bundleLibs() && Settings::bundleFrameworks()) {
+    if (bundleLibs() && bundleFrameworks()) {
         if (!qt_plugins_called || (deps.size() != dep_counter))
             bundleQtPlugins();
     }
 }
 
-void changeLibPathsOnFile(const std::string& file_to_fix)
+void DylibBundler::changeLibPathsOnFile(const std::string& file_to_fix)
 {
     if (deps_collected.find(file_to_fix) == deps_collected.end() || rpaths_collected.find(file_to_fix) == rpaths_collected.end())
         collectDependencies(file_to_fix);
 
     std::cout << "* Fixing dependencies on " << file_to_fix << "\n";
 
-    std::vector<Dependency> dependencies = deps_per_file[file_to_fix];
+    std::vector<Dependency*> dependencies = deps_per_file[file_to_fix];
     for (auto& dependency : dependencies) {
-        dependency.FixDependentFile(file_to_fix);
+        dependency->FixDependentFile(file_to_fix);
     }
 }
 
-void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
+void DylibBundler::fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
 {
     std::vector<std::string> rpaths_to_fix;
-    if (!Settings::fileHasRpath(original_file))
+    if (!fileHasRpath(original_file))
         return;
 
-    rpaths_to_fix = Settings::getRpathsForFile(original_file);
+    rpaths_to_fix = getRpathsForFile(original_file);
     for (const auto& rpath_to_fix : rpaths_to_fix) {
         std::string command = std::string("install_name_tool -rpath ");
-        command.append(rpath_to_fix).append(" ").append(Settings::insideLibPath());
+        command.append(rpath_to_fix).append(" ").append(insideLibPath());
         command.append(" ").append(file_to_fix);
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix rpath " << rpath_to_fix << " of " << file_to_fix << std::endl;
@@ -202,36 +158,36 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
     }
 }
 
-void bundleDependencies()
+void DylibBundler::bundleDependencies()
 {
     for (const auto& dep : deps) {
-        dep.Print();
+        dep->Print();
     }
     std::cout << "\n";
-    if (Settings::verboseOutput()) {
+    if (verboseOutput()) {
         std::cout << "rpaths:" << std::endl;
         for (const auto& rpath : rpaths) {
             std::cout << "* " << rpath << std::endl;
         }
     }
     // copy & fix up dependencies
-    if (Settings::bundleLibs()) {
+    if (bundleLibs()) {
         createDestDir();
         for (const auto& dep : deps) {
-            dep.CopyToBundle();
-            changeLibPathsOnFile(dep.InstallPath());
-            fixRpathsOnFile(dep.OriginalPath(), dep.InstallPath());
+            dep->CopyToBundle();
+            changeLibPathsOnFile(dep->InstallPath());
+            fixRpathsOnFile(dep->OriginalPath(), dep->InstallPath());
         }
     }
     // fix up selected files
-    const auto files = Settings::filesToFix();
+    const auto files = filesToFix();
     for (const auto& file : files) {
         changeLibPathsOnFile(file);
         fixRpathsOnFile(file, file);
     }
 }
 
-void bundleQtPlugins()
+void DylibBundler::bundleQtPlugins()
 {
     bool qtCoreFound = false;
     bool qtGuiFound = false;
@@ -279,11 +235,11 @@ void bundleQtPlugins()
     if (!qtCoreFound)
         return;
     if (!qt_plugins_called)
-        createQtConf(Settings::resourcesFolder());
+        createQtConf(resourcesFolder());
     qt_plugins_called = true;
 
-    const auto fixupPlugin = [original_file](const std::string& plugin) {
-        std::string dest = Settings::pluginsFolder();
+    const auto fixupPlugin = [&](const std::string& plugin) {
+        std::string dest = pluginsFolder();
         std::string framework_root = getFrameworkRoot(original_file);
         std::string prefix = filePrefix(framework_root);
         std::string qt_prefix = filePrefix(prefix.substr(0, prefix.size()-1));
@@ -293,9 +249,12 @@ void bundleQtPlugins()
             copyFile(qt_plugins_prefix + plugin, dest);
             std::vector<std::string> files = lsDir(dest + plugin+"/");
             for (const auto& file : files) {
-                Settings::addFileToFix(dest + plugin+"/"+file);
-                collectDependencies(dest + plugin + "/" + file);
-                changeId(dest + plugin+"/"+file, "@rpath/" + plugin+"/"+file);
+                std::string suffix = std::string("").append(plugin).append("/").append(file);
+                std::string file_to_fix = dest.append(suffix);
+                std::string new_rpath = std::string("@rpath/").append(suffix);
+                addFileToFix(file_to_fix);
+                collectDependencies(file_to_fix);
+                changeId(file_to_fix, new_rpath);
             }
         }
     };
@@ -305,10 +264,10 @@ void bundleQtPlugins()
     std::string qt_prefix = filePrefix(prefix.substr(0, prefix.size()-1));
     std::string qt_plugins_prefix = qt_prefix + "plugins/";
 
-    std::string dest = Settings::pluginsFolder();
+    std::string dest = pluginsFolder();
     mkdir(dest + "platforms");
     copyFile(qt_plugins_prefix + "platforms/libqcocoa.dylib", dest + "platforms");
-    Settings::addFileToFix(dest + "platforms/libqcocoa.dylib");
+    addFileToFix(dest + "platforms/libqcocoa.dylib");
     collectDependencies(dest + "platforms/libqcocoa.dylib");
 
     fixupPlugin("printsupport");
@@ -345,4 +304,301 @@ void bundleQtPlugins()
         fixupPlugin("webview");
 
     collectSubDependencies();
+}
+
+
+std::string DylibBundler::getUserInputDirForFile(const std::string& filename, const std::string& dependent_file)
+{
+    std::vector<std::string> search_paths = userSearchPaths();
+    for (auto& search_path : search_paths) {
+        if (!search_path.empty() && search_path[search_path.size()-1] != '/')
+            search_path += "/";
+        if (fileExists(search_path + filename)) {
+            if (!quietOutput()) {
+                std::cerr << (search_path + filename) << " was found\n"
+                          << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
+            }
+            return search_path;
+        }
+    }
+
+    while (true) {
+        if (quietOutput())
+            std::cerr << "\n/!\\ WARNING: Dependency " << filename << " of " << dependent_file << " not found\n";
+        std::cout << "\nPlease specify the directory where this file is located (or enter 'quit' to abort): ";
+        fflush(stdout);
+
+        std::string prefix;
+        std::cin >> prefix;
+        std::cout << std::endl;
+
+        if (prefix == "quit" || prefix == "exit" || prefix == "abort")
+            exit(1);
+
+        if (!prefix.empty() && prefix[prefix.size()-1] != '/')
+            prefix += "/";
+
+        if (!fileExists(prefix+filename)) {
+            std::cerr << (prefix+filename) << " does not exist. Try again...\n";
+            continue;
+        }
+        else {
+            std::cerr << (prefix+filename) << " was found\n"
+                      << "/!\\ WARNING: dylibbundler MAY NOT CORRECTLY HANDLE THIS DEPENDENCY: Check the executable with 'otool -L'\n";
+            addUserSearchPath(prefix);
+            return prefix;
+        }
+    }
+}
+
+std::string DylibBundler::searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file)
+{
+    if (verboseOutput()) {
+        if (dependent_file != rpath_file)
+            std::cout << "  dependent file: " << dependent_file << std::endl;
+        std::cout << "    dependency: " << rpath_file << std::endl;
+    }
+
+    std::string fullpath;
+    std::string suffix = rpath_file.substr(rpath_file.rfind('/')+1);
+    char fullpath_buffer[PATH_MAX];
+
+    const auto check_path = [&](std::string path) {
+        char buffer[PATH_MAX];
+        std::string file_prefix = filePrefix(dependent_file);
+        if (path.find("@executable_path") != std::string::npos || path.find("@loader_path") != std::string::npos) {
+            if (path.find("@executable_path") != std::string::npos) {
+                if (appBundleProvided())
+                    path = std::regex_replace(path, std::regex("@executable_path/"), executableFolder());
+            }
+            if (dependent_file != rpath_file) {
+                if (path.find("@loader_path") != std::string::npos)
+                    path = std::regex_replace(path, std::regex("@loader_path/"), file_prefix);
+            }
+            if (verboseOutput())
+                std::cout << "    path to search: " << path << std::endl;
+            if (realpath(path.c_str(), buffer)) {
+                fullpath = buffer;
+                rpathToFullPath(rpath_file, fullpath);
+                return true;
+            }
+        }
+        else if (path.find("@rpath") != std::string::npos) {
+            if (appBundleProvided()) {
+                std::string pathE = std::regex_replace(path, std::regex("@rpath/"), executableFolder());
+                if (verboseOutput())
+                    std::cout << "    path to search: " << pathE << std::endl;
+                if (realpath(pathE.c_str(), buffer)) {
+                    fullpath = buffer;
+                    rpathToFullPath(rpath_file, fullpath);
+                    return true;
+                }
+            }
+            if (dependent_file != rpath_file) {
+                std::string pathL = std::regex_replace(path, std::regex("@rpath/"), file_prefix);
+                if (verboseOutput())
+                    std::cout << "    path to search: " << pathL << std::endl;
+                if (realpath(pathL.c_str(), buffer)) {
+                    fullpath = buffer;
+                    rpathToFullPath(rpath_file, fullpath);
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    // fullpath previously stored
+    if (rpathFound(rpath_file)) {
+        fullpath = getFullPath(rpath_file);
+    }
+    else if (!check_path(rpath_file)) {
+        auto rpaths_for_file = getRpathsForFile(dependent_file);
+        for (auto rpath : rpaths_for_file) {
+            if (rpath[rpath.size()-1] != '/')
+                rpath += "/";
+            std::string path = rpath + suffix;
+            if (verboseOutput())
+                std::cout << "    trying rpath: " << path << std::endl;
+            if (check_path(path))
+                break;
+        }
+    }
+
+    if (fullpath.empty()) {
+        std::vector<std::string> search_paths = searchPaths();
+        for (const auto& search_path : search_paths) {
+            if (fileExists(search_path+suffix)) {
+                if (verboseOutput())
+                    std::cout << "FOUND " << suffix << " in " << search_path << std::endl;
+                fullpath = search_path + suffix;
+                break;
+            }
+        }
+        if (fullpath.empty()) {
+            if (verboseOutput())
+                std::cout << "  ** rpath fullpath: not found" << std::endl;
+            if (!quietOutput())
+                std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
+            fullpath = getUserInputDirForFile(suffix, dependent_file) + suffix;
+            if (quietOutput() && fullpath.empty())
+                std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
+            if (realpath(fullpath.c_str(), fullpath_buffer))
+                fullpath = fullpath_buffer;
+        }
+        else if (verboseOutput()) {
+            std::cout << "  ** rpath fullpath: " << fullpath << std::endl;
+        }
+    }
+    else if (verboseOutput()) {
+        std::cout << "  ** rpath fullpath: " << fullpath << std::endl;
+    }
+
+    return fullpath;
+}
+
+std::string DylibBundler::searchFilenameInRpaths(const std::string& rpath_file)
+{
+    return searchFilenameInRpaths(rpath_file, rpath_file);
+}
+
+void DylibBundler::initSearchPaths()
+{
+    std::string searchPaths;
+    char *dyldLibPath = std::getenv("DYLD_LIBRARY_PATH");
+    if (dyldLibPath != nullptr)
+        searchPaths = dyldLibPath;
+    dyldLibPath = std::getenv("DYLD_FALLBACK_FRAMEWORK_PATH");
+    if (dyldLibPath != nullptr) {
+        if (!searchPaths.empty() && searchPaths[searchPaths.size()-1] != ':')
+            searchPaths += ":";
+        searchPaths += dyldLibPath;
+    }
+    dyldLibPath = std::getenv("DYLD_FALLBACK_LIBRARY_PATH");
+    if (dyldLibPath != nullptr) {
+        if (!searchPaths.empty() && searchPaths[searchPaths.size()-1] != ':')
+            searchPaths += ":";
+        searchPaths += dyldLibPath;
+    }
+    if (!searchPaths.empty()) {
+        std::stringstream ss(searchPaths);
+        std::string item;
+        while (std::getline(ss, item, ':')) {
+            if (item[item.size()-1] != '/')
+                item += "/";
+            addSearchPath(item);
+        }
+    }
+}
+
+void DylibBundler::createDestDir()
+{
+    std::string dest_folder = destFolder();
+    if (verboseOutput())
+        std::cout << "Checking output directory " << dest_folder << "\n";
+
+    bool dest_exists = fileExists(dest_folder);
+
+    if (dest_exists && canOverwriteDir()) {
+        std::cout << "Erasing old output directory " << dest_folder << "\n";
+        std::string command = std::string("rm -r ").append(dest_folder);
+        if (systemp(command) != 0) {
+            std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite destination folder\n";
+            exit(1);
+        }
+        dest_exists = false;
+    }
+
+    if (!dest_exists) {
+        if (canCreateDir()) {
+            std::cout << "Creating output directory " << dest_folder << "\n\n";
+            if (!mkdir(dest_folder)) {
+                std::cerr << "\n/!\\ ERROR: An error occured while creating " << dest_folder << std::endl;
+                exit(1);
+            }
+        }
+        else {
+            std::cerr << "\n\n/!\\ ERROR: Destination folder does not exist. Create it or pass the '-cd' or '-od' flag\n";
+            exit(1);
+        }
+    }
+}
+
+void DylibBundler::changeId(const std::string& binary_file, const std::string& new_id)
+{
+    std::string command = std::string("install_name_tool -id ").append(new_id).append(" ").append(binary_file);
+    if (systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << std::endl;
+        exit(1);
+    }
+}
+
+void DylibBundler::changeInstallName(const std::string& binary_file, const std::string& old_name, const std::string& new_name)
+{
+    std::string command = std::string("install_name_tool -change ").append(old_name).append(" ");
+    command.append(new_name).append(" ").append(binary_file);
+    if (systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << std::endl;
+        exit(1);
+    }
+}
+
+void DylibBundler::copyFile(const std::string& from, const std::string& to)
+{
+    bool overwrite = canOverwriteFiles();
+    if (fileExists(to) && !overwrite) {
+        std::cerr << "\n\nError: File " << to << " already exists. Remove it or enable overwriting (-of)\n";
+        exit(1);
+    }
+
+    // copy file/directory
+    std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
+    std::string command = std::string("cp -R ").append(overwrite_permission);
+    command.append(from).append(" ").append(to);
+    if (from != to && systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << std::endl;
+        exit(1);
+    }
+
+    // give file/directory write permission
+    std::string command2 = std::string("chmod -R +w ").append(to);
+    if (systemp(command2) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << std::endl;
+        exit(1);
+    }
+}
+
+void DylibBundler::deleteFile(const std::string& path, bool overwrite)
+{
+    std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
+    std::string command = std::string("rm -r ").append(overwrite_permission).append(path);
+    if (systemp(command) != 0) {
+        std::cerr << "\n\nError: An error occured while trying to delete " << path << std::endl;
+        exit(1);
+    }
+}
+
+void DylibBundler::deleteFile(const std::string& path)
+{
+    bool overwrite = canOverwriteFiles();
+    deleteFile(path, overwrite);
+}
+
+bool DylibBundler::mkdir(const std::string& path)
+{
+    if (verboseOutput())
+        std::cout << "Creating directory " << path << std::endl;
+    std::string command = std::string("mkdir -p ").append(path);
+    if (systemp(command) != 0) {
+        std::cerr << "\n/!\\ ERROR: An error occured while creating " << path << std::endl;
+        return false;
+    }
+    return true;
+}
+
+int DylibBundler::systemp(const std::string& cmd)
+{
+    if (!quietOutput())
+        std::cout << "    " << cmd << "\n";
+    return system(cmd.c_str());
 }

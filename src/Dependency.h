@@ -6,9 +6,11 @@
 #include <string>
 #include <vector>
 
+#include "DylibBundler.h"
+
 class Dependency {
 public:
-    Dependency(std::string path, const std::string& dependent_file);
+    Dependency(std::string path, const std::string& dependent_file, DylibBundler* db);
 
     [[nodiscard]] bool IsFramework() const { return is_framework; }
 
@@ -23,7 +25,7 @@ public:
 
     // Compare the given dependency with this one. If both refer to the same file,
     // merge both entries into one and return true.
-    bool MergeIfIdentical(Dependency& dependency);
+    bool MergeIfIdentical(Dependency* dependency);
 
     void CopyToBundle() const;
     void FixDependentFile(const std::string& dependent_file) const;
@@ -40,6 +42,8 @@ private:
 
     // installation
     std::string new_name;
+
+    DylibBundler* db_;
 };
 
 #endif
