@@ -125,7 +125,7 @@ int main(int argc, const char* argv[])
 
     const std::vector<std::string> files_to_fix = db->filesToFix();
     for (const auto& file_to_fix : files_to_fix) {
-        db->collectDependencies(file_to_fix);
+        db->collectDependenciesRpaths(file_to_fix);
     }
     db->collectSubDependencies();
     db->bundleDependencies();

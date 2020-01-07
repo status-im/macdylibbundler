@@ -1,9 +1,5 @@
 #include "Settings.h"
 
-#include <cstdlib>
-#include <map>
-#include <utility>
-
 #include <sys/param.h>
 
 #include "Utils.h"
@@ -34,9 +30,9 @@ void Settings::appBundle(std::string path)
     char buffer[PATH_MAX];
     if (realpath(app_bundle.c_str(), buffer))
         app_bundle = buffer;
-
+    // fix path if needed so it ends with '/'
     if (app_bundle[app_bundle.size()-1] != '/')
-        app_bundle += "/"; // fix path if needed so it ends with '/'
+        app_bundle += "/";
 
     std::string bundle_executable_path = app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle);
     if (realpath(bundle_executable_path.c_str(), buffer))

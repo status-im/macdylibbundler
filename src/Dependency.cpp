@@ -10,12 +10,11 @@
 #include <sys/types.h>
 #endif
 
+#include "DylibBundler.h"
 #include "Utils.h"
 
 Dependency::Dependency(std::string path, const std::string& dependent_file, DylibBundler* db)
-        : is_framework(false),
-          db_(db)
-
+        : is_framework(false), db(db)
 {
     char buffer[PATH_MAX];
     rtrim_in_place(path);
@@ -23,7 +22,7 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
     std::string warning_msg;
 
     if (isRpath(path)) {
-        original_file = db_->searchFilenameInRpaths(path, dependent_file);
+        original_file = db->searchFilenameInRpaths(path, dependent_file);
     }
     else if (realpath(path.c_str(), buffer)) {
         original_file = buffer;
@@ -33,7 +32,7 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
         original_file = path;
     }
 
-    if (db_->verboseOutput()) {
+    if (db->verboseOutput()) {
         std::cout<< "** Dependency ctor **" << std::endl;
         if (path != dependent_file)
             std::cout << "  dependent file:  " << dependent_file << std::endl;
@@ -52,7 +51,7 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
         prefix += "/";
 
     // check if this dependency is in /usr/lib, /System/Library, or in ignored list
-    if (!db_->isPrefixBundled(prefix))
+    if (!db->isPrefixBundled(prefix))
         return;
 
     if (original_file.find(".framework") != std::string::npos) {
@@ -62,7 +61,7 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
         std::string framework_name = stripPrefix(framework_root);
         prefix = filePrefix(framework_root);
         filename = framework_name + "/" + framework_path;
-        if (db_->verboseOutput()) {
+        if (db->verboseOutput()) {
             std::cout << "  framework root: " << framework_root << std::endl;
             std::cout << "  framework path: " << framework_path << std::endl;
             std::cout << "  framework name: " << framework_name << std::endl;
@@ -71,31 +70,31 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
 
     // check if the lib is in a known location
     if (prefix.empty() || !fileExists(prefix+filename)) {
-        std::vector<std::string> search_paths = db_->searchPaths();
+        std::vector<std::string> search_paths = db->searchPaths();
         if (search_paths.empty())
-            db_->initSearchPaths();
+            db->initSearchPaths();
         // check if file is contained in one of the paths
         for (const auto& search_path : search_paths) {
             if (fileExists(search_path+filename)) {
                 warning_msg += "FOUND " + filename + " in " + search_path + "\n";
                 prefix = search_path;
-                db_->missingPrefixes(true);
+                db->missingPrefixes(true);
                 break;
             }
         }
     }
 
-    if (!db_->quietOutput())
+    if (!db->quietOutput())
         std::cout << warning_msg;
 
     // if the location is still unknown, ask the user for search path
-    if (!db_->isPrefixIgnored(prefix) && (prefix.empty() || !fileExists(prefix+filename))) {
-        if (!db_->quietOutput())
+    if (!db->isPrefixIgnored(prefix) && (prefix.empty() || !fileExists(prefix + filename))) {
+        if (!db->quietOutput())
             std::cerr << "\n/!\\ WARNING: Dependency " << filename << " of " << dependent_file << " not found\n";
-        if (db_->verboseOutput())
+        if (db->verboseOutput())
             std::cout << "     path: " << (prefix+filename) << std::endl;
-        db_->missingPrefixes(true);
-        db_->addSearchPath(db_->getUserInputDirForFile(filename, dependent_file));
+        db->missingPrefixes(true);
+        db->addSearchPath(db->getUserInputDirForFile(filename, dependent_file));
     }
 
     new_name = filename;
@@ -103,12 +102,12 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
 
 std::string Dependency::InnerPath() const
 {
-    return db_->insideLibPath() + new_name;
+    return db->insideLibPath() + new_name;
 }
 
 std::string Dependency::InstallPath() const
 {
-    return db_->destFolder() + new_name;
+    return db->destFolder() + new_name;
 }
 
 void Dependency::AddSymlink(const std::string& path)
@@ -134,10 +133,10 @@ void Dependency::CopyToBundle() const
 
     if (is_framework) {
         original_path = getFrameworkRoot(original_path);
-        dest_path = db_->destFolder() + stripPrefix(original_path);
+        dest_path = db->destFolder() + stripPrefix(original_path);
     }
 
-    if (db_->verboseOutput()) {
+    if (db->verboseOutput()) {
         std::string inner_path = InnerPath();
         std::cout << "  - original path: " << original_path << std::endl;
         std::cout << "  - inner path:    " << inner_path << std::endl;
@@ -145,31 +144,31 @@ void Dependency::CopyToBundle() const
         std::cout << "  - install path:  " << InstallPath() << std::endl;
     }
 
-    db_->copyFile(original_path, dest_path);
+    db->copyFile(original_path, dest_path);
 
     if (is_framework) {
         std::string headers_path = dest_path + std::string("/Headers");
         char buffer[PATH_MAX];
         if (realpath(rtrim(headers_path).c_str(), buffer))
             headers_path = buffer;
-        db_->deleteFile(headers_path, true);
-        db_->deleteFile(dest_path + "/*.prl");
+        db->deleteFile(headers_path, true);
+        db->deleteFile(dest_path + "/*.prl");
     }
 
-    db_->changeId(InstallPath(), "@rpath/" + new_name);
+    db->changeId(InstallPath(), "@rpath/" + new_name);
 }
 
 void Dependency::FixDependentFile(const std::string& dependent_file) const
 {
-    db_->changeInstallName(dependent_file, OriginalPath(), InnerPath());
+    db->changeInstallName(dependent_file, OriginalPath(), InnerPath());
     for (const auto& symlink : symlinks) {
-        db_->changeInstallName(dependent_file, symlink, InnerPath());
+        db->changeInstallName(dependent_file, symlink, InnerPath());
     }
 
-    if (db_->missingPrefixes()) {
-        db_->changeInstallName(dependent_file, filename, InnerPath());
+    if (db->missingPrefixes()) {
+        db->changeInstallName(dependent_file, filename, InnerPath());
         for (const auto& symlink : symlinks) {
-            db_->changeInstallName(dependent_file, symlink, InnerPath());
+            db->changeInstallName(dependent_file, symlink, InnerPath());
         }
     }
 }

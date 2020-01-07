@@ -6,7 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "DylibBundler.h"
+//#include "DylibBundler.h"
+
+class DylibBundler;
 
 class Dependency {
 public:
@@ -43,7 +45,7 @@ private:
     // installation
     std::string new_name;
 
-    DylibBundler* db_;
+    DylibBundler* db;
 };
 
 #endif

@@ -4,16 +4,8 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <regex>
-#include <sstream>
 
-#include <sys/param.h>
-#ifndef __clang__
-#include <sys/types.h>
-#endif
 #include <unistd.h>
-
-#include "Settings.h"
 
 std::string filePrefix(const std::string& in)
 {
@@ -61,17 +53,14 @@ void tokenize(const std::string& str, const char* delim, std::vector<std::string
     std::string delimiters(delim);
 
     // skip delimiters at beginning
-    std::string::size_type lastPos = str.find_first_not_of(delimiters, 0);
+    std::string::size_type end = str.find_first_not_of(delimiters, 0);
     // find first non-delimiter
-    std::string::size_type pos = str.find_first_of(delimiters, lastPos);
+    std::string::size_type start = str.find_first_of(delimiters, end);
 
-    while (pos != std::string::npos || lastPos != std::string::npos) {
-        // found a token, add it to the vector
-        out.push_back(str.substr(lastPos, pos - lastPos));
-        // skip delimiters
-        lastPos = str.find_first_not_of(delimiters, pos);
-        // find next non-delimiter
-        pos = str.find_first_of(delimiters, lastPos);
+    while (start != std::string::npos || end != std::string::npos) {
+        out.push_back(str.substr(end, start - end));
+        end = str.find_first_not_of(delimiters, start);
+        start = str.find_first_of(delimiters, end);
     }
 }
 
@@ -137,10 +126,8 @@ std::string systemOutput(const std::string& cmd)
         return "";
     }
 
-    int return_value = pclose(command_output);
-    if (return_value != 0)
+    if (pclose(command_output) != 0)
         return "";
-
     return full_output;
 }
 
@@ -150,13 +137,12 @@ void otool(const std::string& flags, const std::string& file, std::vector<std::s
     std::string output = systemOutput(command);
 
     if (output.find("can't open file") != std::string::npos
-        || output.find("No such file") != std::string::npos
-        || output.find("at least one file must be specified") != std::string::npos
-        || output.empty()) {
+            || output.find("No such file") != std::string::npos
+            || output.find("at least one file must be specified") != std::string::npos
+            || output.empty()) {
         std::cerr << "\n\n/!\\ ERROR: Cannot find file " << file << " to read its load commands\n";
         exit(1);
     }
-
     tokenize(output, "\n", &lines);
 }
 
