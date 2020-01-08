@@ -24,5 +24,4 @@ add_executable(dylibbundler
     src/Settings.h
     src/Utils.cpp
     src/Utils.h
-    src/ParallelForEach.h
 )

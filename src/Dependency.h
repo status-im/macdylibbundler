@@ -22,15 +22,12 @@ public:
     [[nodiscard]] std::string InstallPath() const;
 
     void AddSymlink(const std::string& path);
-
-    // Compare the given dependency with this one. If both refer to the same file,
-    // merge both entries into one and return true.
+    // Compare the |dependency| with |this|. Merge entries if both refer to the same file.
     bool MergeIfIdentical(Dependency* dependency);
+    void Print() const;
 
     void CopyToBundle() const;
     void FixDependentFile(const std::string& dependent_file) const;
-
-    void Print() const;
 
 private:
     bool is_framework;

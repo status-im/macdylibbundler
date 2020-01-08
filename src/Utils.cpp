@@ -134,7 +134,7 @@ std::string systemOutput(const std::string& cmd)
 
 void otool(const std::string& flags, const std::string& file, std::vector<std::string>& lines)
 {
-    std::string command = std::string("/bin/otool ").append(flags).append(" ").append(file);
+    std::string command = std::string("/usr/bin/otool ").append(flags).append(" ").append(file);
     std::string output = systemOutput(command);
 
     if (output.find("can't open file") != std::string::npos

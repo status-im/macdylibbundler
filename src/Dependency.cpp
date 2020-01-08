@@ -126,6 +126,13 @@ bool Dependency::MergeIfIdentical(Dependency* dependency)
     return false;
 }
 
+void Dependency::Print() const
+{
+    std::cout << "\n* " << filename << " from " << prefix << std::endl;
+    for (const auto& symlink : symlinks)
+        std::cout << "    symlink --> " << symlink << std::endl;
+}
+
 void Dependency::CopyToBundle() const
 {
     std::string original_path = OriginalPath();
@@ -161,22 +168,12 @@ void Dependency::CopyToBundle() const
 void Dependency::FixDependentFile(const std::string& dependent_file) const
 {
     db->changeInstallName(dependent_file, OriginalPath(), InnerPath());
-    for (const auto& symlink : symlinks) {
+    for (const auto& symlink : symlinks)
         db->changeInstallName(dependent_file, symlink, InnerPath());
-    }
 
-    if (db->missingPrefixes()) {
-        db->changeInstallName(dependent_file, filename, InnerPath());
-        for (const auto& symlink : symlinks) {
-            db->changeInstallName(dependent_file, symlink, InnerPath());
-        }
-    }
-}
+    if (!db->missingPrefixes()) return;
 
-void Dependency::Print() const
-{
-    std::cout << "\n* " << filename << " from " << prefix << std::endl;
-    for (const auto& symlink : symlinks) {
-        std::cout << "    symlink --> " << symlink << std::endl;
-    }
+    db->changeInstallName(dependent_file, filename, InnerPath());
+    for (const auto& symlink : symlinks)
+        db->changeInstallName(dependent_file, symlink, InnerPath());
 }

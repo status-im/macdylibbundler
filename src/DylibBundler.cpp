@@ -12,12 +12,10 @@
 #include <linux/limits.h>
 #endif
 
-#include "ParallelForEach.h"
 #include "Dependency.h"
 #include "Utils.h"
 
 DylibBundler::DylibBundler() : qt_plugins_called(false) {}
-
 DylibBundler::~DylibBundler() = default;
 
 void DylibBundler::addDependency(const std::string& path, const std::string& dependent_file)
@@ -139,9 +137,8 @@ void DylibBundler::fixRpathsOnFile(const std::string& original_file, const std::
 
     rpaths_to_fix = getRpathsForFile(original_file);
     for (const auto& rpath_to_fix : rpaths_to_fix) {
-        std::string command = std::string("/usr/bin/install_name_tool -rpath ");
-        command.append(rpath_to_fix).append(" ").append(insideLibPath());
-        command.append(" ").append(file_to_fix);
+        std::string command = std::string("/usr/bin/install_name_tool -rpath ").append(rpath_to_fix);
+        command += std::string(" ").append(insideLibPath()).append(" ").append(file_to_fix);
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix rpath " << rpath_to_fix << " of " << file_to_fix << std::endl;
             exit(1);
@@ -163,18 +160,18 @@ void DylibBundler::bundleDependencies()
     // copy & fix up dependencies
     if (bundleLibs()) {
         createDestDir();
-        parallel_for_each(deps.begin(), deps.end(), [&](Dependency* dep) {
+        for (const auto& dep : deps) {
             dep->CopyToBundle();
             changeLibPathsOnFile(dep->InstallPath());
             fixRpathsOnFile(dep->OriginalPath(), dep->InstallPath());
-        });
+        }
     }
     // fix up input files
     const auto files = filesToFix();
-    parallel_for_each(files.begin(), files.end(), [&](const std::string& file) {
+    for (const auto& file : files) {
         changeLibPathsOnFile(file);
         fixRpathsOnFile(file, file);
-    });
+    }
 }
 
 void DylibBundler::bundleQtPlugins()
