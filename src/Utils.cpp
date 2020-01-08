@@ -154,7 +154,7 @@ std::string bundleExecutableName(const std::string& app_bundle_path)
 
 void changeId(const std::string& binary_file, const std::string& new_id)
 {
-    std::string command = std::string("install_name_tool -id ") + new_id + " " + binary_file;
+    std::string command = std::string("install_name_tool -id \"") + new_id + "\" \"" + binary_file + "\"";
     if (systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << std::endl;
         exit(1);
@@ -163,7 +163,7 @@ void changeId(const std::string& binary_file, const std::string& new_id)
 
 void changeInstallName(const std::string& binary_file, const std::string& old_name, const std::string& new_name)
 {
-    std::string command = std::string("install_name_tool -change ") + old_name + " " + new_name + " " + binary_file;
+    std::string command = std::string("install_name_tool -change \"") + old_name + "\" \"" + new_name + "\" \"" + binary_file + "\"";
     if (systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << std::endl;
         exit(1);
@@ -180,14 +180,14 @@ void copyFile(const std::string& from, const std::string& to)
 
     // copy file/directory
     std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
-    std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" ") + to;
+    std::string command = std::string("cp -R ") + overwrite_permission + from + std::string(" \"") + to + "\"";
     if (from != to && systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << std::endl;
         exit(1);
     }
 
     // give file/directory write permission
-    std::string command2 = std::string("chmod -R +w ") + to;
+    std::string command2 = std::string("chmod -R +w \"") + to + "\"";
     if (systemp(command2) != 0) {
         std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << std::endl;
         exit(1);
@@ -196,8 +196,8 @@ void copyFile(const std::string& from, const std::string& to)
 
 void deleteFile(const std::string& path, bool overwrite)
 {
-    std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
-    std::string command = std::string("rm -r ") + overwrite_permission + path;
+    std::string overwrite_permission = std::string(overwrite ? "-f \"" : " \"");
+    std::string command = std::string("rm -r ") + overwrite_permission + path +"\"";;
     if (systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to delete " << path << std::endl;
         exit(1);
@@ -214,7 +214,7 @@ bool mkdir(const std::string& path)
 {
     if (Settings::verboseOutput())
         std::cout << "Creating directory " << path << std::endl;
-    std::string command = std::string("mkdir -p ") + path;
+    std::string command = std::string("mkdir -p \"") + path + "\"";
     if (systemp(command) != 0) {
         std::cerr << "\n/!\\ ERROR: An error occured while creating " << path << std::endl;
         return false;
@@ -232,7 +232,7 @@ void createDestDir()
 
     if (dest_exists && Settings::canOverwriteDir()) {
         std::cout << "Erasing old output directory " << dest_folder << "\n";
-        std::string command = std::string("rm -r ") + dest_folder;
+        std::string command = std::string("rm -r \"") + dest_folder + "\"";
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite destination folder\n";
             exit(1);
@@ -301,7 +301,7 @@ std::string getUserInputDirForFile(const std::string& filename, const std::strin
 
 void otool(const std::string& flags, const std::string& file, std::vector<std::string>& lines)
 {
-    std::string command = "otool " + flags + " " + file;
+    std::string command = "/usr/bin/otool " + flags + " \"" + file + "\"";
     std::string output = systemOutput(command);
 
     if (output.find("can't open file") != std::string::npos
