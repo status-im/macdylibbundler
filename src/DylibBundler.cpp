@@ -139,7 +139,7 @@ void DylibBundler::fixRpathsOnFile(const std::string& original_file, const std::
 
     rpaths_to_fix = getRpathsForFile(original_file);
     for (const auto& rpath_to_fix : rpaths_to_fix) {
-        std::string command = std::string("install_name_tool -rpath ");
+        std::string command = std::string("/usr/bin/install_name_tool -rpath ");
         command.append(rpath_to_fix).append(" ").append(insideLibPath());
         command.append(" ").append(file_to_fix);
         if (systemp(command) != 0) {
@@ -154,6 +154,7 @@ void DylibBundler::bundleDependencies()
     for (const auto& dep : deps)
         dep->Print();
     std::cout << "\n";
+
     if (verboseOutput()) {
         std::cout << "rpaths:" << std::endl;
         for (const auto& rpath : rpaths)
@@ -263,7 +264,7 @@ void DylibBundler::bundleQtPlugins()
     fixupPlugin("imageformats");
     fixupPlugin("iconengines");
     if (!qtSvgFound)
-        systemp(std::string("rm -f ") + dest + "imageformats/libqsvg.dylib");
+        systemp(std::string("/bin/rm -f ") + dest + "imageformats/libqsvg.dylib");
     if (qtGuiFound) {
         fixupPlugin("platforminputcontexts");
         fixupPlugin("virtualkeyboard");
@@ -314,7 +315,6 @@ std::string DylibBundler::getUserInputDirForFile(const std::string& filename, co
             std::cerr << "\n/!\\ WARNING: Dependency " << filename << " of " << dependent_file << " not found\n";
         std::cout << "\nPlease specify the directory where this file is located (or enter 'quit' to abort): ";
         fflush(stdout);
-
         std::string prefix;
         std::cin >> prefix;
         std::cout << std::endl;
@@ -483,7 +483,7 @@ void DylibBundler::createDestDir()
     bool dest_exists = fileExists(dest_folder);
     if (dest_exists && canOverwriteDir()) {
         std::cout << "Erasing old output directory " << dest_folder << "\n";
-        std::string command = std::string("rm -r ").append(dest_folder);
+        std::string command = std::string("/bin/rm -r ").append(dest_folder);
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while attempting to overwrite destination folder\n";
             exit(1);
@@ -508,7 +508,7 @@ void DylibBundler::createDestDir()
 
 void DylibBundler::changeId(const std::string& binary_file, const std::string& new_id)
 {
-    std::string command = std::string("install_name_tool -id ").append(new_id).append(" ").append(binary_file);
+    std::string command = std::string("/usr/bin/install_name_tool -id ").append(new_id).append(" ").append(binary_file);
     if (systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << std::endl;
         exit(1);
@@ -517,7 +517,7 @@ void DylibBundler::changeId(const std::string& binary_file, const std::string& n
 
 void DylibBundler::changeInstallName(const std::string& binary_file, const std::string& old_name, const std::string& new_name)
 {
-    std::string command = std::string("install_name_tool -change ").append(old_name).append(" ");
+    std::string command = std::string("/usr/bin/install_name_tool -change ").append(old_name).append(" ");
     command.append(new_name).append(" ").append(binary_file);
     if (systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << std::endl;
@@ -535,7 +535,7 @@ void DylibBundler::copyFile(const std::string& from, const std::string& to)
 
     // copy file/directory
     std::string overwrite_permission = std::string(overwrite ? "-f " : "-n ");
-    std::string command = std::string("cp -R ").append(overwrite_permission);
+    std::string command = std::string("/bin/cp -R ").append(overwrite_permission);
     command.append(from).append(" ").append(to);
     if (from != to && systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to copy file " << from << " to " << to << std::endl;
@@ -543,7 +543,7 @@ void DylibBundler::copyFile(const std::string& from, const std::string& to)
     }
 
     // give file/directory write permission
-    std::string command2 = std::string("chmod -R +w ").append(to);
+    std::string command2 = std::string("/bin/chmod -R +w ").append(to);
     if (systemp(command2) != 0) {
         std::cerr << "\n\nError: An error occured while trying to set write permissions on file " << to << std::endl;
         exit(1);
@@ -553,7 +553,7 @@ void DylibBundler::copyFile(const std::string& from, const std::string& to)
 void DylibBundler::deleteFile(const std::string& path, bool overwrite)
 {
     std::string overwrite_permission = std::string(overwrite ? "-f " : " ");
-    std::string command = std::string("rm -r ").append(overwrite_permission).append(path);
+    std::string command = std::string("/bin/rm -r ").append(overwrite_permission).append(path);
     if (systemp(command) != 0) {
         std::cerr << "\n\nError: An error occured while trying to delete " << path << std::endl;
         exit(1);
@@ -570,7 +570,7 @@ bool DylibBundler::mkdir(const std::string& path)
 {
     if (verboseOutput())
         std::cout << "Creating directory " << path << std::endl;
-    std::string command = std::string("mkdir -p ").append(path);
+    std::string command = std::string("/bin/mkdir -p ").append(path);
     if (systemp(command) != 0) {
         std::cerr << "\n/!\\ ERROR: An error occured while creating " << path << std::endl;
         return false;

@@ -9,7 +9,7 @@
 
 #include "DylibBundler.h"
 
-const std::string VERSION = "2.1.0 (2020-01-04)";
+const std::string VERSION = "2.2.0 (2020-01-07)";
 
 void showHelp()
 {
