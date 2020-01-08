@@ -1,32 +1,31 @@
-mac dylib bundler v2
-================
+mac dylib bundler v2.2
+======================
 
 
 About
 -----
 
-Mac OS X (now macOS) introduced an innovative and very useful way to package applications: app bundles.
-While their design has all that is needed to ease distribution of resources and frameworks, it
-seems like dynamic libraries (.dylib) are very complicated to distribute. Sure, applications developed
-specifically for macOS (OS X) won't make use of them, however applications ported from Linux or other Unices may have
-dependencies that will only compile as dylibs. By default, there exists no mechanism to bundle them but some command-line utilities provided by Apple - however it turns out that for a single program it is often necessary to issue dozens of commands! This often leads each developer to create their own "home solution" which are often hacky, non-portable and/or suboptimal.
-
-**dylibbundler** is a small command-line programs that aims to make bundling .dylibs as easy as possible.
-It automatically determines which dylibs are needed by your program, copies these libraries inside the app bundle, and fixes both them and the executable to be ready for distribution... all this with a single command! It will also work if your program uses plug-ins that have dependencies too.
-
-It usually involves 2 actions :
-* Creating a directory (by default called *Frameworks*) that can be placed inside the *Contents* folder of the app bundle.
-* Fixing the executable file so that it is aware of the new location of its dependencies.
+**dylibbundler** is a macOS command-line utility for producing relocatable application bundles. External dependencies (dynamic libraries) are copied inside the app bundle, and install names are made run-path-relative. (https://developer.apple.com/library/archive/documentation/DeveloperTools/Conceptual/DynamicLibraries/100-Articles/RunpathDependentLibraries.html)
 
 
 Installation
 ------------
-In Terminal, cd to the main directory of dylibbundler and type "make". You can install with "sudo make install".
+In Terminal, from within the macdylibbundler directory:
+```bash
+mkdir build && cd build
+cmake ..
+make
+```
+
+To install in '/usr/local/bin':
+```bash
+sudo make install
+```
 
 
 Using dylibbundler
-----------------------------------
-Here is a list of flags you can pass to dylibbundler:
+------------------
+options:
 
 `-h`, `--help`
 <blockquote>
@@ -35,12 +34,12 @@ Displays a summary of options
 
 `-a`, `--app` (path to app bundle)
 <blockquote>
-Application bundle to make self-contained. Fixes the main executable of the app bundle. Add additional binary files to fix up with the `-x` flag.
+Application bundle to make self-contained. Fixes the main executable of the app bundle. Add additional binary files to fix with the `-x` flag.
 </blockquote>
 
 `-x`, `--fix-file` (executable or plug-in filepath)
 <blockquote>
-Fixes given executable or plug-in file (ex: .dylib, .so). Anything on which `otool -L` works is accepted by `-x`. dylibbundler will walk through the dependencies of the specified file to build a dependency list. It will also fix the said files' dependencies so that it expects to find the libraries relative to itself (e.g. in the app bundle) instead of at an absolute path (e.g. /usr/local/lib). To pass multiple files to fix, simply specify multiple `-x` flags.
+Executable file or dynamic library (ex: .dylib, .so) to fix. Any file on which `otool -L` works is accepted by `-x`. dylibbundler will walk through the dependencies of the specified file to build a dependency list. It will also fix the said files' dependencies so that it expects to find the libraries relative to itself (e.g. in the app bundle) instead of at an absolute path (e.g. /usr/local/lib). To pass multiple files to fix, simply specify multiple `-x` flags.
 </blockquote>
 
 <!-- 

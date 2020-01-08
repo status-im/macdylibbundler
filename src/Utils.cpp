@@ -66,7 +66,7 @@ void tokenize(const std::string& str, const char* delim, std::vector<std::string
 
 std::vector<std::string> lsDir(const std::string& path)
 {
-    std::string cmd = "ls " + path;
+    std::string cmd = "/bin/ls " + path;
     std::string output = systemOutput(cmd);
     std::vector<std::string> files;
     tokenize(output, "\n", &files);
@@ -93,13 +93,14 @@ bool isRpath(const std::string& path)
 std::string bundleExecutableName(const std::string& app_bundle_path)
 {
     std::string cmd = std::string("/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' ");
-    cmd.append(app_bundle_path).append("Contents/Info.plist");
+                cmd += app_bundle_path;
+                cmd += "Contents/Info.plist";
     return rtrim(systemOutput(cmd));
 }
 
 std::string systemOutput(const std::string& cmd)
 {
-    FILE *command_output = nullptr;
+    FILE* command_output = nullptr;
     char output[128];
     int amount_read = 1;
     std::string full_output;
@@ -133,7 +134,7 @@ std::string systemOutput(const std::string& cmd)
 
 void otool(const std::string& flags, const std::string& file, std::vector<std::string>& lines)
 {
-    std::string command = std::string("otool ").append(flags).append(" ").append(file);
+    std::string command = std::string("/bin/otool ").append(flags).append(" ").append(file);
     std::string output = systemOutput(command);
 
     if (output.find("can't open file") != std::string::npos
