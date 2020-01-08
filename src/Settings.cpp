@@ -115,8 +115,8 @@ bool isPrefixBundled(const std::string& prefix)
 {
     if (!bundle_frameworks && prefix.find(".framework") != std::string::npos)
         return false;
-    if (prefix.find("@executable_path") != std::string::npos)
-        return false;
+    // if (prefix.find("@executable_path") != std::string::npos)
+    //     return false;
     if (prefix.find("/usr/lib/") == 0)
         return false;
     if (prefix.find("/System/Library/") != std::string::npos)
