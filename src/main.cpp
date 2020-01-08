@@ -125,9 +125,8 @@ int main(int argc, const char* argv[])
     std::cout << "Collecting dependencies...\n";
 
     const std::vector<std::string> files_to_fix = Settings::filesToFix();
-    for (const auto& file_to_fix : files_to_fix) {
-        collectDependencies(file_to_fix);
-    }
+    for (const auto& file_to_fix : files_to_fix)
+        collectDependenciesRpaths(file_to_fix);
     collectSubDependencies();
     bundleDependencies();
 

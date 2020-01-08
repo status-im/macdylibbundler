@@ -118,9 +118,8 @@ void Dependency::AddSymlink(const std::string& path)
 bool Dependency::MergeIfIdentical(Dependency& dependency)
 {
     if (dependency.OriginalFilename() == filename) {
-        for (const auto& symlink : symlinks) {
+        for (const auto& symlink : symlinks)
             dependency.AddSymlink(symlink);
-        }
         return true;
     }
     return false;
@@ -161,22 +160,19 @@ void Dependency::CopyToBundle() const
 void Dependency::FixDependentFile(const std::string& dependent_file) const
 {
     changeInstallName(dependent_file, OriginalPath(), InnerPath());
-    for (const auto& symlink : symlinks) {
+    for (const auto& symlink : symlinks)
         changeInstallName(dependent_file, symlink, InnerPath());
-    }
 
-    if (Settings::missingPrefixes()) {
-        changeInstallName(dependent_file, filename, InnerPath());
-        for (const auto& symlink : symlinks) {
-            changeInstallName(dependent_file, symlink, InnerPath());
-        }
-    }
+    if (!Settings::missingPrefixes()) return;
+
+    changeInstallName(dependent_file, filename, InnerPath());
+    for (const auto& symlink : symlinks)
+        changeInstallName(dependent_file, symlink, InnerPath());
 }
 
 void Dependency::Print() const
 {
     std::cout << "\n* " << filename << " from " << prefix << std::endl;
-    for (const auto& symlink : symlinks) {
+    for (const auto& symlink : symlinks)
         std::cout << "    symlink --> " << symlink << std::endl;
-    }
 }
