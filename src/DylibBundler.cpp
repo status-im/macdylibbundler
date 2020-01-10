@@ -146,9 +146,7 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
 
     rpaths_to_fix = Settings::getRpathsForFile(original_file);
     for (const auto& rpath_to_fix : rpaths_to_fix) {
-        std::string command = std::string("install_name_tool -rpath ");
-        command.append(rpath_to_fix).append(" ").append(Settings::insideLibPath());
-        command.append(" ").append(file_to_fix);
+        std::string command = std::string("install_name_tool -rpath ") + rpath_to_fix + " " + Settings::insideLibPath() + " " + file_to_fix;
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix rpath " << rpath_to_fix << " of " << file_to_fix << std::endl;
             exit(1);

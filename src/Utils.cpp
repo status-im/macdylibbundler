@@ -141,9 +141,11 @@ bool fileExists(const std::string& filename)
 
 bool isRpath(const std::string& path)
 {
+    // return path.find("@rpath") != std::string::npos
+    //     || path.find("@loader_path") != std::string::npos
+    //     || path.find("@executable_path") != std::string::npos;
     return path.find("@rpath") != std::string::npos
-        || path.find("@loader_path") != std::string::npos
-        || path.find("@executable_path") != std::string::npos;
+        || path.find("@loader_path") != std::string::npos;
 }
 
 std::string bundleExecutableName(const std::string& app_bundle_path)
