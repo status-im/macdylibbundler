@@ -75,6 +75,8 @@ void collectDependenciesForFile(const std::string& dependent_file)
     for (const auto& line : lines) {
         if (!Settings::isPrefixBundled(line))
             continue; // skip system/ignored prefixes
+       if (isRpath(line))
+            collectRpathsForFilename(dependent_file);
         addDependency(line, dependent_file);
     }
     deps_collected[dependent_file] = true;
@@ -123,6 +125,8 @@ void collectSubDependencies()
             for (const auto& line : lines) {
                 if (!Settings::isPrefixBundled(line))
                     continue; // skip system/ignored prefixes
+                if (isRpath(line))
+                    collectRpathsForFilename(searchFilenameInRpaths(line));
                 addDependency(line, original_path);
             }
         }
