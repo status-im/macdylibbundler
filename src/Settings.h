@@ -3,6 +3,7 @@
 #ifndef _settings_
 #define _settings_
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -69,7 +70,7 @@ std::string getFullPath(const std::string& rpath);
 void rpathToFullPath(const std::string& rpath, const std::string& fullpath);
 bool rpathFound(const std::string& rpath);
 
-std::vector<std::string> getRpathsForFile(const std::string& file);
+std::set<std::string> getRpathsForFile(const std::string& file);
 void addRpathForFile(const std::string& file, const std::string& rpath);
 bool fileHasRpath(const std::string& file);
 

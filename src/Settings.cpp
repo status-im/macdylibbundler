@@ -165,9 +165,9 @@ std::string getFullPath(const std::string& rpath) { return rpath_to_fullpath[rpa
 void rpathToFullPath(const std::string& rpath, const std::string& fullpath) { rpath_to_fullpath[rpath] = fullpath; }
 bool rpathFound(const std::string& rpath) { return rpath_to_fullpath.find(rpath) != rpath_to_fullpath.end(); }
 
-std::map<std::string, std::vector<std::string>> rpaths_per_file;
-std::vector<std::string> getRpathsForFile(const std::string& file) { return rpaths_per_file[file]; }
-void addRpathForFile(const std::string& file, const std::string& rpath) { rpaths_per_file[file].push_back(rpath); }
+std::map<std::string, std::set<std::string>> rpaths_per_file;
+std::set<std::string> getRpathsForFile(const std::string& file) { return rpaths_per_file[file]; }
+void addRpathForFile(const std::string& file, const std::string& rpath) { rpaths_per_file[file].insert(rpath); }
 bool fileHasRpath(const std::string& file) { return rpaths_per_file.find(file) != rpaths_per_file.end(); }
 
 } // namespace Settings

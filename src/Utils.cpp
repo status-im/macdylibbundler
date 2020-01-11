@@ -354,10 +354,9 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
 
     std::string fullpath;
     std::string suffix = rpath_file.substr(rpath_file.rfind('/')+1);
-    char fullpath_buffer[PATH_MAX];
+    char buffer[PATH_MAX];
 
     const auto check_path = [&](std::string path) {
-        char buffer[PATH_MAX];
         std::string file_prefix = filePrefix(dependent_file);
         if (path.find("@executable_path") != std::string::npos || path.find("@loader_path") != std::string::npos) {
             if (path.find("@executable_path") != std::string::npos) {
@@ -436,8 +435,8 @@ std::string searchFilenameInRpaths(const std::string& rpath_file, const std::str
             fullpath = getUserInputDirForFile(suffix, dependent_file) + suffix;
             if (Settings::quietOutput() && fullpath.empty())
                 std::cerr << "\n/!\\ WARNING: Can't get path for '" << rpath_file << "'\n";
-            if (realpath(fullpath.c_str(), fullpath_buffer))
-                fullpath = fullpath_buffer;
+            if (realpath(fullpath.c_str(), buffer))
+                fullpath = buffer;
         }
         else if (Settings::verboseOutput()) {
             std::cout << "  ** rpath fullpath: " << fullpath << std::endl;

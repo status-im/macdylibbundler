@@ -160,13 +160,13 @@ void changeLibPathsOnFile(const std::string& file_to_fix)
 
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
 {
-    std::vector<std::string> rpaths_to_fix;
+    std::set<std::string> rpaths_to_fix;
     if (Settings::fileHasRpath(original_file))
         rpaths_to_fix = Settings::getRpathsForFile(original_file);
 
-    for (const auto& i : rpaths_to_fix) {
+    for (const auto& rpath_to_fix : rpaths_to_fix) {
         std::string command = std::string("install_name_tool -rpath ");
-        command += i + " " + Settings::insideLibPath() + " " + file_to_fix;
+        command += rpath_to_fix + " " + Settings::insideLibPath() + " " + file_to_fix;
         if (systemp(command) != 0) {
             std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix dependencies of " << file_to_fix << "\n";
             exit(1);
