@@ -4,6 +4,8 @@
 
 #include "Utils.h"
 
+namespace macDylibBundler {
+
 Settings::Settings() : overwrite_files(false),
                        overwrite_dir(false),
                        create_dir(false),
@@ -24,14 +26,13 @@ Settings::Settings() : overwrite_files(false),
 
 Settings::~Settings() = default;
 
-void Settings::appBundle(std::string path)
-{
+void Settings::appBundle(std::string path) {
     app_bundle = std::move(path);
     char buffer[PATH_MAX];
     if (realpath(app_bundle.c_str(), buffer))
         app_bundle = buffer;
     // fix path if needed so it ends with '/'
-    if (app_bundle[app_bundle.size()-1] != '/')
+    if (app_bundle[app_bundle.size() - 1] != '/')
         app_bundle += "/";
 
     std::string bundle_executable_path = app_bundle + "Contents/MacOS/" + bundleExecutableName(app_bundle);
@@ -47,7 +48,7 @@ void Settings::appBundle(std::string path)
     dest_path = app_bundle + "Contents/" + stripLSlash(dest_folder);
     if (realpath(dest_path.c_str(), buffer))
         dest_path = buffer;
-    if (dest_path[dest_path.size()-1] != '/')
+    if (dest_path[dest_path.size() - 1] != '/')
         dest_path += "/";
 }
 
@@ -59,7 +60,7 @@ void Settings::destFolder(std::string path)
     char buffer[PATH_MAX];
     if (realpath(dest_path.c_str(), buffer))
         dest_path = buffer;
-    if (dest_path[dest_path.size()-1] != '/')
+    if (dest_path[dest_path.size() - 1] != '/')
         dest_path += "/";
 }
 
@@ -67,7 +68,7 @@ void Settings::destFolder(std::string path)
 void Settings::insideLibPath(std::string p)
 {
     inside_path = std::move(p);
-    if (inside_path[inside_path.size()-1] != '/')
+    if (inside_path[inside_path.size() - 1] != '/')
         inside_path += "/";
 }
 
@@ -81,21 +82,21 @@ void Settings::addFileToFix(std::string path)
 
 void Settings::ignorePrefix(std::string prefix)
 {
-    if (prefix[prefix.size()-1] != '/')
+    if (prefix[prefix.size() - 1] != '/')
         prefix += "/";
     prefixes_to_ignore.push_back(prefix);
 }
 
-bool Settings::isPrefixIgnored(const std::string& prefix)
+bool Settings::isPrefixIgnored(const std::string &prefix)
 {
-    for (const auto& prefix_to_ignore : prefixes_to_ignore) {
+    for (const auto &prefix_to_ignore : prefixes_to_ignore) {
         if (prefix == prefix_to_ignore)
             return true;
     }
     return false;
 }
 
-bool Settings::isPrefixBundled(const std::string& prefix)
+bool Settings::isPrefixBundled(const std::string &prefix)
 {
     if (!bundle_frameworks && prefix.find(".framework") != std::string::npos)
         return false;
@@ -109,3 +110,5 @@ bool Settings::isPrefixBundled(const std::string& prefix)
         return false;
     return true;
 }
+
+} // namespace macDylibBundler

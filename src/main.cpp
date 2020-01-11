@@ -34,7 +34,7 @@ void showHelp()
 
 int main(int argc, const char* argv[])
 {
-    DylibBundler* db = new DylibBundler();
+    macDylibBundler::DylibBundler* db = new macDylibBundler::DylibBundler();
     // parse arguments
     for (int i=0; i<argc; i++) {
         if (strcmp(argv[i],"-a") == 0 || strcmp(argv[i],"--app") == 0) {
@@ -116,17 +116,15 @@ int main(int argc, const char* argv[])
         }
     }
 
-    if (db->filesToFixCount() < 1) {
+    const std::vector<std::string> files_to_fix = db->filesToFix();
+    if (files_to_fix.empty()) {
         showHelp();
         exit(0);
     }
 
     std::cout << "Collecting dependencies...\n";
-
-    const std::vector<std::string> files_to_fix = db->filesToFix();
-    for (const auto& file_to_fix : files_to_fix) {
+    for (const auto& file_to_fix : files_to_fix)
         db->collectDependenciesRpaths(file_to_fix);
-    }
     db->collectSubDependencies();
     db->bundleDependencies();
 

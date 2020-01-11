@@ -13,7 +13,9 @@
 #include "DylibBundler.h"
 #include "Utils.h"
 
-Dependency::Dependency(std::string path, const std::string& dependent_file, DylibBundler* db)
+namespace macDylibBundler {
+
+Dependency::Dependency(std::string path, const std::string &dependent_file, DylibBundler *db)
         : is_framework(false), db(db)
 {
     char buffer[PATH_MAX];
@@ -23,17 +25,15 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
 
     if (isRpath(path)) {
         original_file = db->searchFilenameInRpaths(path, dependent_file);
-    }
-    else if (realpath(path.c_str(), buffer)) {
+    } else if (realpath(path.c_str(), buffer)) {
         original_file = buffer;
-    }
-    else {
+    } else {
         warning_msg = "\n/!\\ WARNING: Cannot resolve path '" + path + "'\n";
         original_file = path;
     }
 
     if (db->verboseOutput()) {
-        std::cout<< "** Dependency ctor **" << std::endl;
+        std::cout << "** Dependency ctor **" << std::endl;
         if (path != dependent_file)
             std::cout << "  dependent file:  " << dependent_file << std::endl;
         std::cout << "  dependency path: " << path << std::endl;
@@ -47,7 +47,7 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
     prefix = filePrefix(original_file);
     filename = stripPrefix(original_file);
 
-    if (!prefix.empty() && prefix[prefix.size()-1] != '/')
+    if (!prefix.empty() && prefix[prefix.size() - 1] != '/')
         prefix += "/";
 
     // check if this dependency is in /usr/lib, /System/Library, or in ignored list
@@ -69,13 +69,13 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
     }
 
     // check if the lib is in a known location
-    if (prefix.empty() || !fileExists(prefix+filename)) {
+    if (prefix.empty() || !fileExists(prefix + filename)) {
         std::vector<std::string> search_paths = db->searchPaths();
         if (search_paths.empty())
             db->initSearchPaths();
         // check if file is contained in one of the paths
-        for (const auto& search_path : search_paths) {
-            if (fileExists(search_path+filename)) {
+        for (const auto &search_path : search_paths) {
+            if (fileExists(search_path + filename)) {
                 warning_msg += "FOUND " + filename + " in " + search_path + "\n";
                 prefix = search_path;
                 db->missingPrefixes(true);
@@ -92,7 +92,7 @@ Dependency::Dependency(std::string path, const std::string& dependent_file, Dyli
         if (!db->quietOutput())
             std::cerr << "\n/!\\ WARNING: Dependency " << filename << " of " << dependent_file << " not found\n";
         if (db->verboseOutput())
-            std::cout << "     path: " << (prefix+filename) << std::endl;
+            std::cout << "     path: " << (prefix + filename) << std::endl;
         db->missingPrefixes(true);
         db->addSearchPath(db->getUserInputDirForFile(filename, dependent_file));
     }
@@ -110,16 +110,16 @@ std::string Dependency::InstallPath() const
     return db->destFolder() + new_name;
 }
 
-void Dependency::AddSymlink(const std::string& path)
+void Dependency::AddSymlink(const std::string &path)
 {
     if (std::find(symlinks.begin(), symlinks.end(), path) == symlinks.end())
         symlinks.push_back(path);
 }
 
-bool Dependency::MergeIfIdentical(Dependency* dependency)
+bool Dependency::MergeIfIdentical(Dependency *dependency)
 {
     if (dependency->OriginalFilename() == filename) {
-        for (const auto& symlink : symlinks)
+        for (const auto &symlink : symlinks)
             dependency->AddSymlink(symlink);
         return true;
     }
@@ -129,7 +129,7 @@ bool Dependency::MergeIfIdentical(Dependency* dependency)
 void Dependency::Print() const
 {
     std::cout << "\n* " << filename << " from " << prefix << std::endl;
-    for (const auto& symlink : symlinks)
+    for (const auto &symlink : symlinks)
         std::cout << "    symlink --> " << symlink << std::endl;
 }
 
@@ -165,15 +165,17 @@ void Dependency::CopyToBundle() const
     db->changeId(InstallPath(), "@rpath/" + new_name);
 }
 
-void Dependency::FixDependentFile(const std::string& dependent_file) const
+void Dependency::FixDependentFile(const std::string &dependent_file) const
 {
     db->changeInstallName(dependent_file, OriginalPath(), InnerPath());
-    for (const auto& symlink : symlinks)
+    for (const auto &symlink : symlinks)
         db->changeInstallName(dependent_file, symlink, InnerPath());
 
     if (!db->missingPrefixes()) return;
 
     db->changeInstallName(dependent_file, filename, InnerPath());
-    for (const auto& symlink : symlinks)
+    for (const auto &symlink : symlinks)
         db->changeInstallName(dependent_file, symlink, InnerPath());
 }
+
+} //namespace macDylibBundler
