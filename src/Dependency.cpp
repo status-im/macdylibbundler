@@ -87,14 +87,14 @@ void initSearchPaths(){
 // more stuff will then be necessary to do
 bool missing_prefixes = false;
 
-Dependency::Dependency(std::string path)
+Dependency::Dependency(std::string path, std::string dependent_file)
 {
     char original_file_buffer[PATH_MAX];
     std::string original_file;
 
     if (isRpath(path))
     {
-        original_file = searchFilenameInRpaths(path);
+        original_file = searchFilenameInRpaths(path, dependent_file);
     }
     else if (not realpath(rtrim(path).c_str(), original_file_buffer))
     {
@@ -107,17 +107,10 @@ Dependency::Dependency(std::string path)
     }
 
     // check if given path is a symlink
-    if (original_file != rtrim(path))
-    {
-        filename = stripPrefix(original_file);
-        prefix = original_file.substr(0, original_file.rfind("/")+1);
-        addSymlink(path);
-    }
-    else
-    {
-        filename = stripPrefix(path);
-        prefix = path.substr(0, path.rfind("/")+1);
-    }
+    if (original_file != rtrim(path)) addSymlink(path);
+
+    filename = stripPrefix(path);
+    prefix = filePrefix(original_file);
     
     //check if the lib is in a known location
     if( !prefix.empty() && prefix[ prefix.size()-1 ] != '/' ) prefix += "/";

@@ -67,7 +67,10 @@ void tokenize(const string& str, const char* delim, vector<string>* vectorarg)
     
 }
 
-
+std::string filePrefix(std::string in)
+{
+    return in.substr(0, in.rfind("/")+1);
+}
 
 bool fileExists( std::string filename )
 {

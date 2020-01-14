@@ -32,6 +32,7 @@ THE SOFTWARE.
 class Library;
 
 void tokenize(const std::string& str, const char* delimiters, std::vector<std::string>*);
+std::string filePrefix(std::string in);
 bool fileExists( std::string filename );
 
 void copyFile(std::string from, std::string to);

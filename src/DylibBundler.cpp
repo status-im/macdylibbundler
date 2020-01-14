@@ -26,6 +26,7 @@ THE SOFTWARE.
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
+#include <regex>
 #include <set>
 #include <map>
 #ifdef __linux
@@ -40,7 +41,8 @@ std::vector<Dependency> deps;
 std::map<std::string, std::vector<Dependency> > deps_per_file;
 std::map<std::string, bool> deps_collected;
 std::set<std::string> rpaths;
-std::map<std::string, std::vector<std::string> > rpaths_per_file;
+std::map<std::string, std::set<std::string> > rpaths_per_file;
+std::map<std::string, std::string> rpath_to_fullpath;
 
 void changeLibPathsOnFile(std::string file_to_fix)
 {
@@ -96,7 +98,7 @@ void collectRpaths(const std::string& filename)
             start_pos += 5;
             std::string rpath = line.substr(start_pos, end_pos - start_pos);
             rpaths.insert(rpath);
-            rpaths_per_file[filename].push_back(rpath);
+            rpaths_per_file[filename].insert(rpath);
             read_rpath = false;
             continue;
         }
@@ -117,19 +119,86 @@ void collectRpathsForFilename(const std::string& filename)
     }
 }
 
-std::string searchFilenameInRpaths(const std::string& rpath_file)
+std::string searchFilenameInRpaths(const std::string& rpath_file, const std::string& dependent_file)
 {
     char buffer[PATH_MAX];
     std::string fullpath;
     std::string suffix = rpath_file.substr(rpath_file.rfind("/")+1);
 
-    for (std::set<std::string>::iterator it = rpaths.begin(); it != rpaths.end(); ++it)
+    const auto check_path = [&](std::string path)
     {
-        std::string path = *it + "/" + suffix;
-        if (realpath(path.c_str(), buffer))
+        if (path.find("@executable_path") != std::string::npos)
         {
-            fullpath = buffer;
-            break;
+            int count = Settings::fileToFixAmount();
+            for (int n=0; n<count; ++n)
+            {
+                std::string prefix = filePrefix(Settings::fileToFix(n));
+                path = std::regex_replace(path, std::regex("@executable_path/"), prefix);
+                if (realpath(path.c_str(), buffer))
+                {
+                    fullpath = buffer;
+                    rpath_to_fullpath[rpath_file] = fullpath;
+                    return true;
+                }
+            }
+        }
+        else if (dependent_file != rpath_file)
+        {
+            if (path.find("@loader_path") != std::string::npos)
+            {
+                std::string prefix = filePrefix(dependent_file);
+                path = std::regex_replace(path, std::regex("@loader_path/"), prefix);
+                if (realpath(path.c_str(), buffer))
+                {
+                    fullpath = buffer;
+                    rpath_to_fullpath[rpath_file] = fullpath;
+                    return true;
+                }
+            }
+        }
+        if (path.find("@rpath") != std::string::npos)
+        {
+            int count = Settings::fileToFixAmount();
+            for (int n=0; n<count; ++n)
+            {
+                std::string prefix = filePrefix(Settings::fileToFix(n));
+                path = std::regex_replace(path, std::regex("@rpath/"), prefix);
+                if (realpath(path.c_str(), buffer))
+                {
+                    fullpath = buffer;
+                    rpath_to_fullpath[rpath_file] = fullpath;
+                    return true;
+                }
+            }
+            if (dependent_file != rpath_file)
+            {
+                std::string prefix = filePrefix(dependent_file);
+                path = std::regex_replace(path, std::regex("@rpath/"), prefix);
+                if (realpath(path.c_str(), buffer))
+                {
+                    fullpath = buffer;
+                    rpath_to_fullpath[rpath_file] = fullpath;
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    // fullpath previously stored
+    if (rpath_to_fullpath.find(rpath_file) != rpath_to_fullpath.end())
+    {
+        fullpath = rpath_to_fullpath[rpath_file];
+    }
+    else if (!check_path(rpath_file))
+    {
+        for (std::set<std::string>::iterator it = rpaths_per_file[dependent_file].begin(); it != rpaths_per_file[dependent_file].end(); ++it)
+        {
+            std::string rpath = *it;
+            if (rpath[rpath.size()-1] != '/') rpath += "/";
+
+            std::string path = rpath + suffix;
+            if (check_path(path)) break;
         }
     }
 
@@ -145,19 +214,24 @@ std::string searchFilenameInRpaths(const std::string& rpath_file)
     return fullpath;
 }
 
+std::string searchFilenameInRpaths(const std::string& rpath_file)
+{
+    return searchFilenameInRpaths(rpath_file, rpath_file);
+}
+
 void fixRpathsOnFile(const std::string& original_file, const std::string& file_to_fix)
 {
-    std::vector<std::string> rpaths_to_fix;
-    std::map<std::string, std::vector<std::string> >::iterator found = rpaths_per_file.find(original_file);
+    std::set<std::string> rpaths_to_fix;
+    std::map<std::string, std::set<std::string> >::iterator found = rpaths_per_file.find(original_file);
     if (found != rpaths_per_file.end())
     {
         rpaths_to_fix = found->second;
     }
 
-    for (size_t i=0; i < rpaths_to_fix.size(); ++i)
+    for (const auto& rpath_to_fix : rpaths_to_fix)
     {
         std::string command = std::string("install_name_tool -rpath ") +
-                rpaths_to_fix[i] + " " + Settings::inside_lib_path() + " " + file_to_fix;
+                rpath_to_fix + " " + Settings::inside_lib_path() + " " + file_to_fix;
         if ( systemp(command) != 0)
         {
             std::cerr << "\n\nError : An error occured while trying to fix dependencies of " << file_to_fix << std::endl;
@@ -168,7 +242,7 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
 
 void addDependency(std::string path, std::string filename)
 {
-    Dependency dep(path);
+    Dependency dep(path, filename);
     
     // we need to check if this library was already added to avoid duplicates
     bool in_deps = false;
@@ -213,7 +287,6 @@ void collectDependencies(std::string filename, std::vector<std::string>& lines)
     deps_collected[filename] = true;
 }
 
-
 void collectDependencies(std::string filename)
 {
     std::vector<std::string> lines;
@@ -238,6 +311,7 @@ void collectDependencies(std::string filename)
         addDependency(dep_path, filename);
     }
 }
+
 void collectSubDependencies()
 {
     // print status to user
