@@ -146,10 +146,13 @@ void fixRpathsOnFile(const std::string& original_file, const std::string& file_t
 
     rpaths_to_fix = Settings::getRpathsForFile(original_file);
     for (const auto& rpath_to_fix : rpaths_to_fix) {
-        std::string command = std::string("install_name_tool -rpath ") + rpath_to_fix + " " + Settings::insideLibPath() + " " + file_to_fix;
-        if (systemp(command) != 0) {
-            std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix rpath " << rpath_to_fix << " of " << file_to_fix << std::endl;
-            exit(1);
+        std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!! rpath_to_fix: " << rpath_to_fix << "\n";
+        if (rpath_to_fix.find("dSYM") == std::string::npos) {
+            std::string command = std::string("install_name_tool -rpath ") + rpath_to_fix + " " + Settings::insideLibPath() + " " + file_to_fix;
+            if (systemp(command) != 0) {
+                std::cerr << "\n\n/!\\ ERROR: An error occured while trying to fix rpath " << rpath_to_fix << " of " << file_to_fix << std::endl;
+                exit(1);
+            }
         }
     }
 }
@@ -266,8 +269,8 @@ void bundleQtPlugins()
     fixupPlugin("styles");
     fixupPlugin("imageformats");
     fixupPlugin("iconengines");
-    if (!qtSvgFound)
-        systemp(std::string("rm -f ") + dest + "imageformats/libqsvg.dylib");
+    // if (!qtSvgFound)
+    //     systemp(std::string("rm -f ") + dest + "imageformats/libqsvg.dylib");
     if (qtGuiFound) {
         fixupPlugin("platforminputcontexts");
         fixupPlugin("virtualkeyboard");

@@ -156,19 +156,25 @@ std::string bundleExecutableName(const std::string& app_bundle_path)
 
 void changeId(const std::string& binary_file, const std::string& new_id)
 {
-    std::string command = std::string("install_name_tool -id \"") + new_id + "\" \"" + binary_file + "\"";
-    if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << std::endl;
-        exit(1);
+    std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!! new_id: " << new_id << "\n";
+    if (new_id.find("dSYM") == std::string::npos) {
+        std::string command = std::string("install_name_tool -id \"") + new_id + "\" \"" + binary_file + "\"";
+        if (systemp(command) != 0) {
+            std::cerr << "\n\nError: An error occured while trying to change identity of library " << binary_file << std::endl;
+            exit(1);
+        }
     }
 }
 
 void changeInstallName(const std::string& binary_file, const std::string& old_name, const std::string& new_name)
 {
-    std::string command = std::string("install_name_tool -change \"") + old_name + "\" \"" + new_name + "\" \"" + binary_file + "\"";
-    if (systemp(command) != 0) {
-        std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << std::endl;
-        exit(1);
+    std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!! old_name: " << old_name << "\n";
+    if (old_name.find("dSYM") == std::string::npos) {
+        std::string command = std::string("install_name_tool -change \"") + old_name + "\" \"" + new_name + "\" \"" + binary_file + "\"";
+        if (systemp(command) != 0) {
+            std::cerr << "\n\nError: An error occured while trying to fix dependencies of " << binary_file << std::endl;
+            exit(1);
+        }
     }
 }
 
@@ -303,18 +309,21 @@ std::string getUserInputDirForFile(const std::string& filename, const std::strin
 
 void otool(const std::string& flags, const std::string& file, std::vector<std::string>& lines)
 {
-    std::string command = "/usr/bin/otool " + flags + " \"" + file + "\"";
-    std::string output = systemOutput(command);
+    std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!! file: " << file << "\n";
+    if (file.find("dSYM") == std::string::npos) {
+        std::string command = "/usr/bin/otool " + flags + " \"" + file + "\"";
+        std::string output = systemOutput(command);
 
-    if (output.find("can't open file") != std::string::npos
-        || output.find("No such file") != std::string::npos
-        || output.find("at least one file must be specified") != std::string::npos
-        || output.empty()) {
-        std::cerr << "\n\n/!\\ ERROR: Cannot find file " << file << " to read its load commands\n";
-        exit(1);
+        if (output.find("can't open file") != std::string::npos
+            || output.find("No such file") != std::string::npos
+            || output.find("at least one file must be specified") != std::string::npos
+            || output.empty()) {
+            std::cerr << "\n\n/!\\ ERROR: Cannot find file " << file << " to read its load commands\n";
+            exit(1);
+        }
+
+        tokenize(output, "\n", &lines);
     }
-
-    tokenize(output, "\n", &lines);
 }
 
 void parseLoadCommands(const std::string& file, const std::map<std::string,std::string>& cmds_values, std::map<std::string,std::vector<std::string>>& cmds_results)
